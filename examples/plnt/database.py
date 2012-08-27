@@ -46,7 +46,7 @@ entry_table = Table('entries', metadata,
 class Blog(object):
     query = session.query_property()
 
-    def __init__(self, name, url, feed_url, description=u''):
+    def __init__(self, name, url, feed_url, description=''):
         self.name = name
         self.url = url
         self.feed_url = feed_url

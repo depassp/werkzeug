@@ -9,8 +9,8 @@
     :copyright: (c) 2009 by the Werkzeug Team, see AUTHORS for more details.
     :license: BSD, see LICENSE for more details.
 """
-from __future__ import with_statement
-import gdbm
+
+import dbm.gnu
 from threading import Lock
 from pickle import dumps, loads
 
@@ -19,7 +19,7 @@ class Database(object):
 
     def __init__(self, filename):
         self.filename = filename
-        self._fs = gdbm.open(filename, 'cf')
+        self._fs = dbm.gnu.open(filename, 'cf')
         self._local = {}
         self._lock = Lock()
 
@@ -40,7 +40,7 @@ class Database(object):
     def __delitem__(self, key, value):
         with self._lock:
             self._local.pop(key, None)
-            if self._fs.has_key(key):
+            if key in self._fs:
                 del self._fs[key]
 
     def __del__(self):
@@ -64,7 +64,7 @@ class Database(object):
 
     def sync(self):
         with self._lock:
-            for key, value in self._local.iteritems():
+            for key, value in self._local.items():
                 self._fs[key] = dumps(value, 2)
             self._fs.sync()
 

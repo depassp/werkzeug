@@ -65,7 +65,7 @@ class SimpleWiki(object):
         # get the current action from the url and normalize the page name
         # which is just the request path
         action_name = request.args.get('action') or 'show'
-        page_name = u'_'.join([x for x in request.path.strip('/')
+        page_name = '_'.join([x for x in request.path.strip('/')
                                .split() if x])
 
         # redirect to the Main_Page if the user requested the index

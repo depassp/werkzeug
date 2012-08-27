@@ -43,8 +43,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Werkzeug'
-copyright = u'2011, The Werkzeug Team'
+project = 'Werkzeug'
+copyright = '2011, The Werkzeug Team'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -183,8 +183,8 @@ latex_paper_size = 'a4'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, document class [howto/manual]).
 latex_documents = [
-  ('latexindex', 'Werkzeug.tex', ur'Werkzeug Documentation',
-   ur'The Werkzeug Team', 'manual'),
+  ('latexindex', 'Werkzeug.tex', r'Werkzeug Documentation',
+   r'The Werkzeug Team', 'manual'),
 ]
 
 # Additional stuff for LaTeX

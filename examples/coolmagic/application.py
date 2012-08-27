@@ -39,7 +39,7 @@ class CoolMagicApplication(object):
                  endpoint='shared_data')
         ]
         self.views = {}
-        for endpoint, (func, rule, extra) in exported_views.iteritems():
+        for endpoint, (func, rule, extra) in exported_views.items():
             if rule is not None:
                 rules.append(Rule(rule, endpoint=endpoint, **extra))
             self.views[endpoint] = func
@@ -51,9 +51,9 @@ class CoolMagicApplication(object):
         try:
             endpoint, args = urls.match(req.path)
             resp = self.views[endpoint](**args)
-        except NotFound, e:
+        except NotFound as e:
             resp = self.views['static.not_found']()
-        except (HTTPException, RequestRedirect), e:
+        except (HTTPException, RequestRedirect) as e:
             resp = e
         return resp(environ, start_response)
 

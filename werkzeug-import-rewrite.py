@@ -10,7 +10,7 @@
     :copyright: (c) 2011 by the Werkzeug Team.
     :license: BSD, see LICENSE for more details.
 """
-from __future__ import with_statement
+
 import sys
 import os
 import re
@@ -87,7 +87,7 @@ all_by_module = {
 }
 
 by_item = {}
-for module, names in all_by_module.iteritems():
+for module, names in all_by_module.items():
     for name in names:
         by_item[name] = module
 
@@ -208,7 +208,7 @@ def rewrite_file(filename):
                      posixpath.normpath(posixpath.join('a', filename)),
                      posixpath.normpath(posixpath.join('b', filename)),
                      lineterm=''):
-        print line
+        print(line)
 
 
 def rewrite_in_folders(folders):
@@ -222,7 +222,7 @@ def rewrite_in_folders(folders):
 
 def main():
     if len(sys.argv) == 1:
-        print 'usage: werkzeug-import-rewrite.py [folders]'
+        print('usage: werkzeug-import-rewrite.py [folders]')
         sys.exit(1)
     rewrite_in_folders(sys.argv[1:])
 

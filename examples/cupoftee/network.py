@@ -39,12 +39,12 @@ class ServerBrowser(Syncable):
 
     def _sync(self):
         to_delete = set(self.servers)
-        for x in xrange(1, 17):
+        for x in range(1, 17):
             addr = ('master%d.teeworlds.com' % x, 8300)
-            print addr
+            print(addr)
             try:
                 self._sync_master(addr, to_delete)
-            except (socket.error, socket.timeout, IOError), e:
+            except (socket.error, socket.timeout, IOError) as e:
                 continue
         for server_id in to_delete:
             self.servers.pop(server_id, None)
@@ -59,8 +59,8 @@ class ServerBrowser(Syncable):
         data = s.recvfrom(1024)[0][14:]
         s.close()
 
-        for n in xrange(0, len(data) / 6):
-            addr = ('.'.join(map(str, map(ord, data[n * 6:n * 6 + 4]))),
+        for n in range(0, len(data) / 6):
+            addr = ('.'.join(map(str, list(map(ord, data[n * 6:n * 6 + 4])))),
                     ord(data[n * 6 + 5]) * 256 + ord(data[n * 6 + 4]))
             server_id = '%s:%d' % addr
             if server_id in self.servers:
@@ -94,11 +94,11 @@ class Server(Syncable):
         self.map = map_name.decode('latin1')
         self.gametype = bits[3]
         self.flags, self.progression, player_count, \
-            self.max_players = map(int, bits[4:8])
+            self.max_players = list(map(int, bits[4:8]))
 
         # sync the player stats
         players = dict((p.name, p) for p in self.players)
-        for i in xrange(player_count):
+        for i in range(player_count):
             name = bits[8 + i * 2].decode('latin1')
             score = int(bits[9 + i * 2])
 
@@ -110,7 +110,7 @@ class Server(Syncable):
             else:
                 self.players.append(Player(self, name, score))
         # delete players that left
-        for player in players.itervalues():
+        for player in players.values():
             try:
                 self.players.remove(player)
             except:

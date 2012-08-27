@@ -47,7 +47,7 @@ _par_re = re.compile(r'\n{2,}')
 _entity_re = re.compile(r'&([^;]+);')
 _striptags_re = re.compile(r'(<!--.*-->|<[^>]*>)')
 
-from htmlentitydefs import name2codepoint
+from html.entities import name2codepoint
 html_entities = name2codepoint.copy()
 html_entities['apos'] = 39
 del name2codepoint
@@ -72,7 +72,7 @@ def render_template(template_name, **context):
 
 def nl2p(s):
     """Add paragraphs to a text."""
-    return u'\n'.join(u'<p>%s</p>' % p for p in _par_re.split(s))
+    return '\n'.join('<p>%s</p>' % p for p in _par_re.split(s))
 
 
 def url_for(endpoint, **kw):
@@ -85,18 +85,18 @@ def strip_tags(s):
     def handle_match(m):
         name = m.group(1)
         if name in html_entities:
-            return unichr(html_entities[name])
+            return chr(html_entities[name])
         if name[:2] in ('#x', '#X'):
             try:
-                return unichr(int(name[2:], 16))
+                return chr(int(name[2:], 16))
             except ValueError:
-                return u''
+                return ''
         elif name.startswith('#'):
             try:
-                return unichr(int(name[1:]))
+                return chr(int(name[1:]))
             except ValueError:
-                return u''
-        return u''
+                return ''
+        return ''
     return _entity_re.sub(handle_match, _striptags_re.sub('', s))
 
 
