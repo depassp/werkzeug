@@ -507,12 +507,12 @@ class MultiDict(TypeConversionDict):
 
     def itervalues(self):
         """Like :meth:`values` but returns an iterator."""
-        for values in dict.itervalues(self):
+        for values in dict.values(self):
             yield values[0]
 
     def iterlistvalues(self):
         """Like :meth:`listvalues` but returns an iterator."""
-        return dict.itervalues(self)
+        return dict.values(self)
 
     def copy(self):
         """Return a shallow copy of this object."""
@@ -612,11 +612,11 @@ class _omd_bucket(object):
 
     def unlink(self, omd):
         if self.prev:
-            self.prev.next = self.__next__
-        if self.__next__:
+            self.prev.next = self.next
+        if self.next:
             self.next.prev = self.prev
         if omd._first_bucket is self:
-            omd._first_bucket = self.__next__
+            omd._first_bucket = self.next
         if omd._last_bucket is self:
             omd._last_bucket = self.prev
 
@@ -1132,12 +1132,12 @@ class Headers(object):
             self.set(key, value)
 
     def to_list(self, charset='iso-8859-1'):
-        """Convert the headers into a list and converts the unicode header
-        items to the specified charset.
+        """Convert the headers into a list and decodes the header items using
+        the specified charset.
 
         :return: list
         """
-        return [(k, isinstance(v, str) and v.encode(charset) or str(v))
+        return [(k, v if isinstance(v, str) else v.decode(charset))
                 for k, v in self]
 
     def copy(self):
@@ -1579,7 +1579,7 @@ class Accept(ImmutableList):
 
     def values(self):
         """Return a list of the values, not the qualities."""
-        return list(self.values())
+        return list(self.itervalues())
 
     def itervalues(self):
         """Iterate over all values."""

@@ -43,7 +43,7 @@ class MutableMultiDictBaseTestCase(WerkzeugTestCase):
             self.assert_equal(type(ud), type(d))
             self.assert_equal(ud, d)
             self.assert_equal(pickle.loads(
-                s.replace('werkzeug.datastructures', 'werkzeug')), d)
+                s.replace(b'werkzeug.datastructures', b'werkzeug')), d)
             ud['newkey'] = 'bla'
             self.assert_not_equal(ud, d)
 
