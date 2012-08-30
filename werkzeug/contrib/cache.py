@@ -59,18 +59,12 @@
 import os
 import re
 import tempfile
-try:
-    from hashlib import md5
-except ImportError:
-    from md5 import new as md5
+from hashlib import md5
 
 from time import time
 from werkzeug.posixemulation import rename
 
-try:
-    import pickle as pickle
-except ImportError:
-    import pickle
+import pickle
 
 
 def _items(mappingorseq):
@@ -625,7 +619,7 @@ class FileSystemCache(BaseCache):
                 pass
 
     def _get_filename(self, key):
-        hash = md5(key).hexdigest()
+        hash = md5(key.encode('utf8')).hexdigest()
         return os.path.join(self._path, hash)
 
     def get(self, key):

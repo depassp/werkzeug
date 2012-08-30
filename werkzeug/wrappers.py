@@ -830,7 +830,7 @@ class BaseResponse(object):
             if isinstance(item, str):
                 yield item.encode(charset)
             else:
-                yield str(item)
+                yield item
 
     def set_cookie(self, key, value='', max_age=None, expires=None,
                    path='/', domain=None, secure=None, httponly=False):

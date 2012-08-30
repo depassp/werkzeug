@@ -493,7 +493,7 @@ class MultiDict(TypeConversionDict):
 
     def iteritems(self, multi=False):
         """Like :meth:`items` but returns an iterator."""
-        for key, values in dict.iteritems(self):
+        for key, values in dict.items(self):
             if multi:
                 for value in values:
                     yield key, value
@@ -502,7 +502,7 @@ class MultiDict(TypeConversionDict):
 
     def iterlists(self):
         """Like :meth:`items` but returns an iterator."""
-        for key, values in dict.iteritems(self):
+        for key, values in dict.items(self):
             yield key, list(values)
 
     def itervalues(self):
@@ -705,14 +705,14 @@ class OrderedMultiDict(MultiDict):
         if multi:
             while ptr is not None:
                 yield ptr.key, ptr.value
-                ptr = ptr.__next__
+                ptr = ptr.next
         else:
             returned_keys = set()
             while ptr is not None:
                 if ptr.key not in returned_keys:
                     returned_keys.add(ptr.key)
                     yield ptr.key, ptr.value
-                ptr = ptr.__next__
+                ptr = ptr.next
 
     def iterlists(self):
         returned_keys = set()
@@ -721,7 +721,7 @@ class OrderedMultiDict(MultiDict):
             if ptr.key not in returned_keys:
                 yield ptr.key, self.getlist(ptr.key)
                 returned_keys.add(ptr.key)
-            ptr = ptr.__next__
+            ptr = ptr.next
 
     def iterlistvalues(self):
         for key, values in self.iterlists():

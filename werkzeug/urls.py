@@ -16,39 +16,38 @@ from werkzeug.wsgi import make_chunk_iter
 
 
 #: list of characters that are always safe in URLs.
-_always_safe = ('ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-                'abcdefghijklmnopqrstuvwxyz'
-                '0123456789_.-')
-_safe_map = dict((c, c) for c in _always_safe)
-for i in range(0x80):
-    c = chr(i)
-    if c not in _safe_map:
-        _safe_map[c] = '%%%02X' % i
-_safe_map.update((chr(i), '%%%02X' % i) for i in range(0x80, 0x100))
+_always_safe = (b'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                b'abcdefghijklmnopqrstuvwxyz'
+                b'0123456789_.-')
+_safe_map = dict((c, chr(c)) for c in _always_safe)
+for i in range(0x100):
+    if i not in _safe_map:
+        _safe_map[i] = '%%%02X' % i
+_safe_map.update((i, '%%%02X' % i) for i in range(0x80, 0x100))
 _safemaps = {}
 
 #: lookup table for encoded characters.
 _hexdig = '0123456789ABCDEFabcdef'
-_hextochr = dict((a + b, chr(int(a + b, 16)))
+_hextochr = dict((a + b, bytes([int(a + b, 16)]))
                  for a in _hexdig for b in _hexdig)
 
 
-def _quote(s, safe='/', _join=''.join):
-    assert isinstance(s, str), 'quote only works on bytes'
+def _quote(s, safe=b'/', _join=''.join):
+    assert isinstance(s, bytes), 'quote only works on bytes'
     if not s or not s.rstrip(_always_safe + safe):
-        return s
+        return s.decode('ascii')
     try:
         quoter = _safemaps[safe]
     except KeyError:
         safe_map = _safe_map.copy()
-        safe_map.update([(c, c) for c in safe])
+        safe_map.update([(c, chr(c)) for c in safe])
         _safemaps[safe] = quoter = safe_map.__getitem__
-    return _join(list(map(quoter, s)))
+    return _join(map(quoter, s))
 
 
-def _quote_plus(s, safe=''):
-    if ' ' in s:
-        return _quote(s, safe + ' ').replace(' ', '+')
+def _quote_plus(s, safe=b''):
+    if b' ' in s:
+        return _quote(s, safe + b' ').replace(' ', '+')
     return _quote(s, safe)
 
 
@@ -61,27 +60,27 @@ def _safe_urlsplit(s):
     # we have to check rv[2] here and not rv[1] as rv[1] will be
     # an empty bytestring in case no domain was given.
     if type(rv[2]) is not type(s):
-        assert hasattr(urlparse, 'clear_cache')
+        assert hasattr(urllib.parse, 'clear_cache')
         urllib.parse.clear_cache()
         rv = urllib.parse.urlsplit(s)
         assert type(rv[2]) is type(s)
     return rv
 
 
-def _unquote(s, unsafe=''):
-    assert isinstance(s, str), 'unquote only works on bytes'
+def _unquote(s, unsafe=b''):
+    assert isinstance(s, str), 'unquote only works on str'
     rv = s.split('%')
     if len(rv) == 1:
-        return s
-    s = rv[0]
+        return s.encode('ascii')
+    s = rv[0].encode('ascii')
     for item in rv[1:]:
         try:
             char = _hextochr[item[:2]]
             if char in unsafe:
                 raise KeyError()
-            s += char + item[2:]
+            s += char + item[2:].encode('ascii')
         except KeyError:
-            s += '%' + item
+            s += b'%' + item.encode('ascii')
     return s
 
 
@@ -114,9 +113,9 @@ def iri_to_uri(iri, charset='utf-8'):
 
     Examples for IRI versus URI:
 
-    >>> iri_to_uri(u'http://☃.net/')
+    >>> iri_to_uri('http://☃.net/')
     'http://xn--n3h.net/'
-    >>> iri_to_uri(u'http://üser:pässword@☃.net/påth')
+    >>> iri_to_uri('http://üser:pässword@☃.net/påth')
     'http://%C3%BCser:p%C3%A4ssword@xn--n3h.net/p%C3%A5th'
 
     .. versionadded:: 0.6
@@ -127,8 +126,7 @@ def iri_to_uri(iri, charset='utf-8'):
     iri = str(iri)
     scheme, auth, hostname, port, path, query, fragment = _uri_split(iri)
 
-    scheme = scheme.encode('ascii')
-    hostname = hostname.encode('idna')
+    hostname = hostname.encode('idna').decode('ascii')
     if auth:
         if ':' in auth:
             auth, password = auth.split(':', 1)
@@ -141,8 +139,8 @@ def iri_to_uri(iri, charset='utf-8'):
     if port:
         hostname += ':' + port
 
-    path = _quote(path.encode(charset), safe="/:~+")
-    query = _quote(query.encode(charset), safe="=%&[]:;$()+,!?*/")
+    path = _quote(path.encode(charset), safe=b"/:~+")
+    query = _quote(query.encode(charset), safe=b"=%&[]:;$()+,!?*/")
 
     # this absolutely always must return a string.  Otherwise some parts of
     # the system might perform double quoting (#61)
@@ -155,14 +153,14 @@ def uri_to_iri(uri, charset='utf-8', errors='replace'):
     Examples for URI versus IRI
 
     >>> uri_to_iri('http://xn--n3h.net/')
-    u'http://\u2603.net/'
+    'http://\u2603.net/'
     >>> uri_to_iri('http://%C3%BCser:p%C3%A4ssword@xn--n3h.net/p%C3%A5th')
-    u'http://\xfcser:p\xe4ssword@\u2603.net/p\xe5th'
+    'http://\xfcser:p\xe4ssword@\u2603.net/p\xe5th'
 
     Query strings are left unchanged:
 
     >>> uri_to_iri('/?foo=24&x=%26%2f')
-    u'/?foo=24&x=%26%2f'
+    '/?foo=24&x=%26%2f'
 
     .. versionadded:: 0.6
 
@@ -170,13 +168,11 @@ def uri_to_iri(uri, charset='utf-8', errors='replace'):
     :param charset: the charset of the URI
     :param errors: the error handling on decode
     """
-    uri = url_fix(str(uri), charset)
+    uri = url_fix(uri, charset)
     scheme, auth, hostname, port, path, query, fragment = _uri_split(uri)
 
-    scheme = _decode_unicode(scheme, 'ascii', errors)
-
     try:
-        hostname = hostname.decode('idna')
+        hostname = hostname.encode('ascii').decode('idna')
     except UnicodeError:
         # dammit, that codec raised an error.  Because it does not support
         # any error handling we have to fake it.... badly
@@ -198,8 +194,8 @@ def uri_to_iri(uri, charset='utf-8', errors='replace'):
         # port should be numeric, but you never know...
         hostname += ':' + port.decode(charset, errors)
 
-    path = _decode_unicode(_unquote(path, '/;?'), charset, errors)
-    query = _decode_unicode(_unquote(query, ';/?:@&=+,$'),
+    path = _decode_unicode(_unquote(path, b'/;?'), charset, errors)
+    query = _decode_unicode(_unquote(query, b';/?:@&=+,$'),
                             charset, errors)
 
     return urllib.parse.urlunsplit([scheme, hostname, path, query, fragment])
@@ -293,6 +289,9 @@ def _url_decode_impl(pair_iter, charset, decode_keys, include_empty,
         key = _unquote_plus(key)
         if decode_keys:
             key = _decode_unicode(key, charset, errors)
+        else:
+            # XXX: Python 2 behaviour
+            key = _decode_unicode(key, 'ascii', errors)
         yield key, url_unquote_plus(value, charset, errors)
 
 
@@ -351,18 +350,19 @@ def url_encode_stream(obj, stream=None, charset='utf-8', encode_keys=False,
 def _url_encode_impl(obj, charset, encode_keys, sort, key):
     iterable = iter_multi_items(obj)
     if sort:
-        iterable = sorted(iterable, key=key)
+        _key = lambda item: [str(_) for _ in item]
+        iterable = sorted(iterable, key=key or _key)
     for key, value in iterable:
         if value is None:
             continue
         if encode_keys and isinstance(key, str):
             key = key.encode(charset)
         else:
-            key = str(key)
+            key = str(key).encode('ascii')
         if isinstance(value, str):
             value = value.encode(charset)
-        else:
-            value = str(value)
+        elif isinstance(value, int):
+            value = str(value).encode('ascii')
         yield '%s=%s' % (_quote(key), _quote_plus(value))
 
 
@@ -377,10 +377,14 @@ def url_quote(s, charset='utf-8', safe='/:'):
         s = s.encode(charset)
     elif not isinstance(s, str):
         s = str(s)
+    if isinstance(safe, str):
+        safe = safe.encode(charset)
+    elif not isinstance(safe, str):
+        safe = str(safe)
     return _quote(s, safe=safe)
 
 
-def url_quote_plus(s, charset='utf-8', safe=''):
+def url_quote_plus(s, charset='utf-8', safe=b''):
     """URL encode a single string with the given encoding and convert
     whitespace to "+".
 
@@ -406,8 +410,6 @@ def url_unquote(s, charset='utf-8', errors='replace'):
     :param charset: the charset to be used.
     :param errors: the error handling for the charset decoding.
     """
-    if isinstance(s, str):
-        s = s.encode(charset)
     return _decode_unicode(_unquote(s), charset, errors)
 
 
@@ -423,8 +425,6 @@ def url_unquote_plus(s, charset='utf-8', errors='replace'):
     :param charset: the charset to be used.
     :param errors: the error handling for the charset decoding.
     """
-    if isinstance(s, str):
-        s = s.encode(charset)
     return _decode_unicode(_unquote_plus(s), charset, errors)
 
 
@@ -434,18 +434,16 @@ def url_fix(s, charset='utf-8'):
     some of the problems in a similar way browsers handle data entered by the
     user:
 
-    >>> url_fix(u'http://de.wikipedia.org/wiki/Elf (Begriffskl\xe4rung)')
+    >>> url_fix('http://de.wikipedia.org/wiki/Elf (Begriffskl\xe4rung)')
     'http://de.wikipedia.org/wiki/Elf%20%28Begriffskl%C3%A4rung%29'
 
     :param s: the string with the URL to fix.
     :param charset: The target charset for the URL if the url was given as
                     unicode string.
     """
-    if isinstance(s, str):
-        s = s.encode(charset, 'replace')
     scheme, netloc, path, qs, anchor = _safe_urlsplit(s)
-    path = _quote(path, '/%')
-    qs = _quote_plus(qs, ':&%=')
+    path = _quote(path.encode('utf-8'), b'/%')
+    qs = _quote_plus(qs.encode('utf-8'), b':&%=')
     return urllib.parse.urlunsplit((scheme, netloc, path, qs, anchor))
 
 

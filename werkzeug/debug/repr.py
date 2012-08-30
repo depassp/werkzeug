@@ -16,10 +16,7 @@
 import sys
 import re
 from traceback import format_exception_only
-try:
-    from collections import deque
-except ImportError: # pragma: no cover
-    deque = None
+from collections import deque
 from werkzeug.utils import escape
 
 
@@ -74,7 +71,7 @@ class _Helper(object):
             return
         import pydoc
         pydoc.help(topic)
-        rv = sys.stdout.reset().decode('utf-8', 'ignore')
+        rv = sys.stdout.reset()
         paragraphs = _paragraph_re.split(rv)
         if len(paragraphs) > 1:
             title = paragraphs[0]
@@ -210,7 +207,7 @@ class DebugReprGenerator(object):
         except Exception: # pragma: no cover
             info = '?'
         return '<span class="brokenrepr">&lt;broken repr (%s)&gt;' \
-               '</span>' % escape(info.decode('utf-8', 'ignore').strip())
+               '</span>' % escape(info.strip())
 
     def repr(self, obj):
         recursive = False

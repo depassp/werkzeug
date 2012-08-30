@@ -142,9 +142,6 @@ class HTTPException(Exception):
         return response(environ, start_response)
 
     def __str__(self):
-        return str(self).encode('utf-8')
-
-    def __unicode__(self):
         if 'description' in self.__dict__:
             txt = self.description
         else:
