@@ -166,10 +166,10 @@ def extract_path_info(environ_or_baseurl, path_or_url, charset='utf-8',
     Some examples:
 
     >>> extract_path_info('http://example.com/app', '/app/hello')
-    u'/hello'
+    '/hello'
     >>> extract_path_info('http://example.com/app',
     ...                   'https://example.com/app/hello')
-    u'/hello'
+    '/hello'
     >>> extract_path_info('http://example.com/app',
     ...                   'https://example.com/app/hello',
     ...                   collapse_http_schemes=False) is None
@@ -196,9 +196,11 @@ def extract_path_info(environ_or_baseurl, path_or_url, charset='utf-8',
     from werkzeug.urls import uri_to_iri, url_fix
 
     def _as_iri(obj):
-        if not isinstance(obj, str):
-            return uri_to_iri(obj, charset, errors)
-        return obj
+        try:
+            obj.encode('ascii')  # XXX
+        except UnicodeEncodeError:
+            return obj
+        return uri_to_iri(obj, charset, errors)
 
     def _normalize_netloc(scheme, netloc):
         parts = netloc.split('@', 1)[-1].split(':', 1)
@@ -385,7 +387,7 @@ class SharedDataMiddleware(object):
         return 'wzsdm-%d-%s-%s' % (
             mktime(mtime.timetuple()),
             file_size,
-            adler32(real_filename) & 0xffffffff
+            adler32(real_filename.encode('utf-8')) & 0xffffffff
         )
 
     def __call__(self, environ, start_response):
@@ -619,11 +621,11 @@ def make_line_iter(stream, limit=None, buffer_size=10 * 1024):
             chunks = _read(buffer_size).splitlines(True)
             chunks.reverse()
 
-            first_chunk = buffer and buffer[0] or ''
+            first_chunk = buffer and buffer[0] or b''
             if chunks:
-                if first_chunk and first_chunk[-1] in '\r\n':
+                if first_chunk and first_chunk[-1] in b'\r\n':
                     yield first_chunk
-                    first_chunk = ''
+                    first_chunk = b''
                 first_chunk += chunks.pop()
             else:
                 yield first_chunk
@@ -634,18 +636,18 @@ def make_line_iter(stream, limit=None, buffer_size=10 * 1024):
             # in case the line is longer than the buffer size we
             # can't yield yet.  This will only happen if the buffer
             # is empty.
-            if not buffer and first_chunk[-1] not in '\r\n':
+            if not buffer and first_chunk[-1] not in b'\r\n':
                 buffer = [first_chunk]
             else:
                 yield first_chunk
 
     # This hackery is necessary to merge 'foo\r' and '\n' into one item
     # of 'foo\r\n' if we were unlucky and we hit a chunk boundary.
-    previous = ''
+    previous = b''
     for item in _iter_basic_lines():
-        if item == '\n' and previous[-1:] == '\r':
-            previous += '\n'
-            item = ''
+        if item == b'\n' and previous[-1:] == b'\r':
+            previous += b'\n'
+            item = b''
         if previous:
             yield previous
         previous = item
@@ -760,7 +762,7 @@ class LimitedStream(object):
         function.
         """
         if self.silent:
-            return ''
+            return b''
         from werkzeug.exceptions import BadRequest
         raise BadRequest('input stream exhausted')
 

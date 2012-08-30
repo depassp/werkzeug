@@ -127,6 +127,13 @@ class _TestCookieHeaders(object):
                 headers.append(v)
         return headers
 
+    def get_all(self, name, default=None):
+        rv = []
+        for k, v in self.headers:
+            if k.lower() == name:
+                rv.append(v)
+        return rv or default or []
+
 
 class _TestCookieResponse(object):
     """Something that looks like a httplib.HTTPResponse, but is actually just an
@@ -266,10 +273,8 @@ class EnvironBuilder(object):
             path = iri_to_uri(path, charset)
         self.path = path
         if base_url is not None:
-            if isinstance(base_url, str):
-                base_url = iri_to_uri(base_url, charset)
-            else:
-                base_url = url_fix(base_url, charset)
+            base_url = iri_to_uri(base_url, charset)
+            base_url = url_fix(base_url, charset)
         self.base_url = base_url
         if isinstance(query_string, str):
             self.query_string = query_string
@@ -523,9 +528,10 @@ class EnvironBuilder(object):
             result.update(self.environ_base)
 
         def _path_encode(x):
-            if isinstance(x, str):
-                x = x.encode(self.charset)
-            return _unquote(x)
+            x = _unquote(x)
+            if isinstance(x, bytes):
+                x = x.decode(self.charset)
+            return x
 
         result.update({
             'REQUEST_METHOD':       self.method,

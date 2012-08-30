@@ -13,7 +13,7 @@
 
 import unittest
 from os import path
-from io import StringIO
+from io import BytesIO
 
 from werkzeug.testsuite import WerkzeugTestCase
 
@@ -33,7 +33,7 @@ class WSGIUtilsTestCase(WerkzeugTestCase):
     def test_shared_data_middleware(self):
         def null_application(environ, start_response):
             start_response('404 NOT FOUND', [('Content-Type', 'text/plain')])
-            yield 'NOT FOUND'
+            yield b'NOT FOUND'
         app = wsgi.SharedDataMiddleware(null_application, {
             '/':        path.join(path.dirname(__file__), 'res'),
             '/sources': path.join(path.dirname(__file__), 'res'),
@@ -43,15 +43,15 @@ class WSGIUtilsTestCase(WerkzeugTestCase):
         for p in '/test.txt', '/sources/test.txt':
             app_iter, status, headers = run_wsgi_app(app, create_environ(p))
             assert status == '200 OK'
-            assert ''.join(app_iter).strip() == 'FOUND'
+            assert b''.join(app_iter).strip() == b'FOUND'
 
         app_iter, status, headers = run_wsgi_app(app, create_environ('/pkg/debugger.js'))
-        contents = ''.join(app_iter)
-        assert '$(function() {' in contents
+        contents = b''.join(app_iter)
+        assert b'$(function() {' in contents
 
         app_iter, status, headers = run_wsgi_app(app, create_environ('/missing'))
         assert status == '404 NOT FOUND'
-        assert ''.join(app_iter).strip() == 'NOT FOUND'
+        assert b''.join(app_iter).strip() == b'NOT FOUND'
 
     def test_get_host(self):
         env = {'HTTP_X_FORWARDED_HOST': 'example.org',
@@ -62,11 +62,11 @@ class WSGIUtilsTestCase(WerkzeugTestCase):
 
     def test_responder(self):
         def foo(environ, start_response):
-            return BaseResponse('Test')
+            return BaseResponse(b'Test')
         client = Client(wsgi.responder(foo), BaseResponse)
         response = client.get('/')
         assert response.status_code == 200
-        assert response.data == 'Test'
+        assert response.data == b'Test'
 
     def test_pop_path_info(self):
         original_env = {'SCRIPT_NAME': '/foo', 'PATH_INFO': '/a/b///c'}
@@ -98,54 +98,54 @@ class WSGIUtilsTestCase(WerkzeugTestCase):
             def on_exhausted(self):
                 raise BadRequest('input stream exhausted')
 
-        io = StringIO('123456')
+        io = BytesIO(b'123456')
         stream = RaisingLimitedStream(io, 3)
-        assert stream.read() == '123'
+        assert stream.read() == b'123'
         self.assert_raises(BadRequest, stream.read)
 
-        io = StringIO('123456')
+        io = BytesIO(b'123456')
         stream = RaisingLimitedStream(io, 3)
-        assert stream.read(1) == '1'
-        assert stream.read(1) == '2'
-        assert stream.read(1) == '3'
+        assert stream.read(1) == b'1'
+        assert stream.read(1) == b'2'
+        assert stream.read(1) == b'3'
         self.assert_raises(BadRequest, stream.read)
 
-        io = StringIO('123456\nabcdefg')
+        io = BytesIO(b'123456\nabcdefg')
         stream = wsgi.LimitedStream(io, 9)
-        assert stream.readline() == '123456\n'
-        assert stream.readline() == 'ab'
+        assert stream.readline() == b'123456\n'
+        assert stream.readline() == b'ab'
 
-        io = StringIO('123456\nabcdefg')
+        io = BytesIO(b'123456\nabcdefg')
         stream = wsgi.LimitedStream(io, 9)
-        assert stream.readlines() == ['123456\n', 'ab']
+        assert stream.readlines() == [b'123456\n', b'ab']
 
-        io = StringIO('123456\nabcdefg')
+        io = BytesIO(b'123456\nabcdefg')
         stream = wsgi.LimitedStream(io, 9)
-        assert stream.readlines(2) == ['12']
-        assert stream.readlines(2) == ['34']
-        assert stream.readlines() == ['56\n', 'ab']
+        assert stream.readlines(2) == [b'12']
+        assert stream.readlines(2) == [b'34']
+        assert stream.readlines() == [b'56\n', b'ab']
 
-        io = StringIO('123456\nabcdefg')
+        io = BytesIO(b'123456\nabcdefg')
         stream = wsgi.LimitedStream(io, 9)
-        assert stream.readline(100) == '123456\n'
+        assert stream.readline(100) == b'123456\n'
 
-        io = StringIO('123456\nabcdefg')
+        io = BytesIO(b'123456\nabcdefg')
         stream = wsgi.LimitedStream(io, 9)
-        assert stream.readlines(100) == ['123456\n', 'ab']
+        assert stream.readlines(100) == [b'123456\n', b'ab']
 
-        io = StringIO('123456')
+        io = BytesIO(b'123456')
         stream = wsgi.LimitedStream(io, 3)
-        assert stream.read(1) == '1'
-        assert stream.read(1) == '2'
-        assert stream.read() == '3'
-        assert stream.read() == ''
+        assert stream.read(1) == b'1'
+        assert stream.read(1) == b'2'
+        assert stream.read() == b'3'
+        assert stream.read() == b''
 
-        io = StringIO('123456')
+        io = BytesIO(b'123456')
         stream = wsgi.LimitedStream(io, 3)
-        assert stream.read(-1) == '123'
+        assert stream.read(-1) == b'123'
 
     def test_limited_stream_disconnection(self):
-        io = StringIO('A bit of content')
+        io = BytesIO(b'A bit of content')
 
         # disconnect detection on out of bytes
         stream = wsgi.LimitedStream(io, 255)
@@ -153,7 +153,7 @@ class WSGIUtilsTestCase(WerkzeugTestCase):
             stream.read()
 
         # disconnect detection because file close
-        io = StringIO('x' * 255)
+        io = BytesIO(b'x' * 255)
         io.close()
         stream = wsgi.LimitedStream(io, 255)
         with self.assert_raises(ClientDisconnected):
@@ -201,28 +201,28 @@ class WSGIUtilsTestCase(WerkzeugTestCase):
         }) == 'foobar.example.com:81'
 
     def test_multi_part_line_breaks(self):
-        data = 'abcdef\r\nghijkl\r\nmnopqrstuvwxyz\r\nABCDEFGHIJK'
-        test_stream = StringIO(data)
+        data = b'abcdef\r\nghijkl\r\nmnopqrstuvwxyz\r\nABCDEFGHIJK'
+        test_stream = BytesIO(data)
         lines = list(wsgi.make_line_iter(test_stream, limit=len(data), buffer_size=16))
-        assert lines == ['abcdef\r\n', 'ghijkl\r\n', 'mnopqrstuvwxyz\r\n', 'ABCDEFGHIJK']
+        assert lines == [b'abcdef\r\n', b'ghijkl\r\n', b'mnopqrstuvwxyz\r\n', b'ABCDEFGHIJK']
 
-        data = 'abc\r\nThis line is broken by the buffer length.\r\nFoo bar baz'
-        test_stream = StringIO(data)
+        data = b'abc\r\nThis line is broken by the buffer length.\r\nFoo bar baz'
+        test_stream = BytesIO(data)
         lines = list(wsgi.make_line_iter(test_stream, limit=len(data), buffer_size=24))
-        assert lines == ['abc\r\n', 'This line is broken by the buffer length.\r\n', 'Foo bar baz']
+        assert lines == [b'abc\r\n', b'This line is broken by the buffer length.\r\n', b'Foo bar baz']
 
     def test_multi_part_line_breaks_problematic(self):
-        data = 'abc\rdef\r\nghi'
+        data = b'abc\rdef\r\nghi'
         for x in range(1, 10):
-            test_stream = StringIO(data)
+            test_stream = BytesIO(data)
             lines = list(wsgi.make_line_iter(test_stream, limit=len(data), buffer_size=4))
-            assert lines == ['abc\r', 'def\r\n', 'ghi']
+            assert lines == [b'abc\r', b'def\r\n', b'ghi']
 
     def test_lines_longer_buffer_size(self):
-        data = '1234567890\n1234567890\n'
+        data = b'1234567890\n1234567890\n'
         for bufsize in range(1, 15):
-            lines = list(wsgi.make_line_iter(StringIO(data), limit=len(data), buffer_size=4))
-            self.assert_equal(lines, ['1234567890\n', '1234567890\n'])
+            lines = list(wsgi.make_line_iter(BytesIO(data), limit=len(data), buffer_size=4))
+            self.assert_equal(lines, [b'1234567890\n', b'1234567890\n'])
 
 
 def suite():
