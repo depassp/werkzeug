@@ -637,11 +637,11 @@ class WrappersTestCase(WerkzeugTestCase):
         class MyResponse(wrappers.Response):
             automatically_set_content_length = False
         resp = MyResponse('Hello World!')
-        self.assert_(resp.content_length is None)
+        self.assertTrue(resp.content_length is None)
 
         resp = MyResponse(['Hello World!'])
-        self.assert_(resp.content_length is None)
-        self.assert_('Content-Length' not in resp.get_wsgi_headers({}))
+        self.assertTrue(resp.content_length is None)
+        self.assertTrue('Content-Length' not in resp.get_wsgi_headers({}))
 
     def test_location_header_autocorrect(self):
         env = create_environ()
