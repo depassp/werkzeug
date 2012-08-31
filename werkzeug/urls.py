@@ -361,7 +361,9 @@ def _url_encode_impl(obj, charset, encode_keys, sort, key):
             key = str(key).encode('ascii')
         if isinstance(value, str):
             value = value.encode(charset)
-        elif isinstance(value, int):
+        elif isinstance(value, bytes):
+            pass
+        else:
             value = str(value).encode('ascii')
         yield '%s=%s' % (_quote(key), _quote_plus(value))
 

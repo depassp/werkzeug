@@ -555,7 +555,9 @@ def parse_etags(value):
 
 def generate_etag(data):
     """Generate an etag for some data."""
-    return md5(data.encode('utf-8')).hexdigest()
+    if isinstance(data, str):
+        data = data.encode('utf-8')
+    return md5(data).hexdigest()
 
 
 def parse_date(value):

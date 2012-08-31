@@ -197,7 +197,7 @@ def extract_path_info(environ_or_baseurl, path_or_url, charset='utf-8',
 
     def _as_iri(obj):
         try:
-            obj.encode('ascii')  # XXX
+            obj.encode('ascii')  # XXX Python 3 hack
         except UnicodeEncodeError:
             return obj
         return uri_to_iri(obj, charset, errors)
@@ -626,7 +626,10 @@ def make_line_iter(stream, limit=None, buffer_size=10 * 1024):
                 if first_chunk and first_chunk[-1] in b'\r\n':
                     yield first_chunk
                     first_chunk = b''
-                first_chunk += chunks.pop()
+                current_chunk = chunks.pop()
+                if isinstance(current_chunk, str):
+                    current_chunk = current_chunk.encode('ascii')
+                first_chunk += current_chunk
             else:
                 yield first_chunk
                 break

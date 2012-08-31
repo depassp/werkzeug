@@ -42,7 +42,7 @@ from werkzeug.datastructures import MultiDict, CombinedMultiDict, Headers, \
      ImmutableList, MIMEAccept, CharsetAccept, LanguageAccept, \
      ResponseCacheControl, RequestCacheControl, CallbackDict, \
      ContentRange
-from werkzeug._internal import _empty_stream, _decode_unicode, \
+from werkzeug._internal import _empty_stream, \
      _patch_wrapper, _get_environ
 
 
@@ -431,13 +431,13 @@ class BaseRequest(object):
         even if the URL root is accessed.
         """
         path = '/' + (self.environ.get('PATH_INFO') or '').lstrip('/')
-        return _decode_unicode(path, self.url_charset, self.encoding_errors)
+        return path
 
     @cached_property
     def script_root(self):
         """The root path of the script without the trailing slash."""
         path = (self.environ.get('SCRIPT_NAME') or '').rstrip('/')
-        return _decode_unicode(path, self.url_charset, self.encoding_errors)
+        return path
 
     @cached_property
     def url(self):

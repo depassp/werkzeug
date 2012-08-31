@@ -1123,6 +1123,7 @@ class Map(object):
             script_name = '/'
         if isinstance(server_name, str):
             server_name = server_name.encode('idna')
+        server_name = server_name.decode('ascii')
         return MapAdapter(self, server_name, script_name, subdomain,
                           url_scheme, path_info, default_method, query_args)
 

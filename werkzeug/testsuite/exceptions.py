@@ -31,7 +31,7 @@ class ExceptionsTestCase(WerkzeugTestCase):
         else:
             self.fail('exception not raised')
         self.assertTrue(resp is orig_resp)
-        self.assert_equal(resp.data, 'Hello World')
+        self.assert_equal(resp.data, b'Hello World')
 
     def test_aborter(self):
         abort = exceptions.abort

@@ -15,7 +15,7 @@ from time import time
 from random import random
 from itertools import chain
 from tempfile import TemporaryFile
-from io import StringIO
+from io import BytesIO
 from http.cookiejar import CookieJar
 from urllib.request import Request as U2Request
 
@@ -35,8 +35,8 @@ def stream_encode_multipart(values, use_tempfile=True, threshold=1024 * 500,
     in a file descriptor.
     """
     if boundary is None:
-        boundary = '---------------WerkzeugFormPart_%s%s' % (time(), random())
-    _closure = [StringIO(), 0, False]
+        boundary = b'---------------WerkzeugFormPart_%s%s' % (time(), random())
+    _closure = [BytesIO(), 0, False]
 
     if use_tempfile:
         def write(string):
@@ -269,7 +269,9 @@ class EnvironBuilder(object):
         if query_string is None and '?' in path:
             path, query_string = path.split('?', 1)
         self.charset = charset
-        if isinstance(path, str):
+        try:
+            path.encode('ascii')  # XXX Python 3 hack
+        except UnicodeEncodeError:
             path = iri_to_uri(path, charset)
         self.path = path
         if base_url is not None:
@@ -307,7 +309,9 @@ class EnvironBuilder(object):
             if input_stream is not None:
                 raise TypeError('can\'t provide input stream and data')
             if isinstance(data, str):
-                self.input_stream = StringIO(data)
+                data = data.encode(self.charset)
+            if isinstance(data, bytes):
+                self.input_stream = BytesIO(data)
                 if self.content_length is None:
                     self.content_length = len(data)
             else:
@@ -519,7 +523,7 @@ class EnvironBuilder(object):
         elif content_type == 'application/x-www-form-urlencoded':
             values = url_encode(self.form, charset=self.charset)
             content_length = len(values)
-            input_stream = StringIO(values)
+            input_stream = BytesIO(values)
         else:
             input_stream = _empty_stream
 
