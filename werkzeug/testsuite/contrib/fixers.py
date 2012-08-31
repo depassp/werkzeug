@@ -89,7 +89,7 @@ class ServerFixerTestCase(WerkzeugTestCase):
         )
 
         response = Response.from_app(app, environ)
-        self.assert_equal(response.data, '127.0.0.1')
+        self.assert_equal(response.data, b'127.0.0.1')
 
     def test_header_rewriter_fix(self):
         """Test the HeaderRewriterFix fixer"""

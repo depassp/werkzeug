@@ -35,12 +35,14 @@ def stream_encode_multipart(values, use_tempfile=True, threshold=1024 * 500,
     in a file descriptor.
     """
     if boundary is None:
-        boundary = b'---------------WerkzeugFormPart_%s%s' % (time(), random())
+        boundary = '---------------WerkzeugFormPart_%s%s' % (time(), random())
     _closure = [BytesIO(), 0, False]
 
     if use_tempfile:
         def write(string):
             stream, total_length, on_disk = _closure
+            if isinstance(string, str):
+                string = string.encode('ascii')
             if on_disk:
                 stream.write(string)
             else:
@@ -307,7 +309,7 @@ class EnvironBuilder(object):
 
         if data:
             if input_stream is not None:
-                raise TypeError('can\'t provide input stream and data')
+                raise TypeError('can\'t provide both input stream and data')
             if isinstance(data, str):
                 data = data.encode(self.charset)
             if isinstance(data, bytes):
@@ -522,6 +524,7 @@ class EnvironBuilder(object):
             content_type += '; boundary="%s"' % boundary
         elif content_type == 'application/x-www-form-urlencoded':
             values = url_encode(self.form, charset=self.charset)
+            values = values.encode('ascii')
             content_length = len(values)
             input_stream = BytesIO(values)
         else:
