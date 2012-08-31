@@ -144,8 +144,8 @@ class DebugReprGenerator(object):
         escaped = escape(obj)
         a = repr(escaped[:limit])
         b = repr(escaped[limit:])
-        if isinstance(obj, str):
-            buf.append('u')
+        if isinstance(obj, bytes):
+            buf.append('b')
             a = a[1:]
             b = b[1:]
         if b != "''":
@@ -175,8 +175,7 @@ class DebugReprGenerator(object):
         return _add_subclass_info(''.join(buf), d, dict)
 
     def object_repr(self, obj):
-        return '<span class="object">%s</span>' % \
-               escape(repr(obj).decode('utf-8', 'replace'))
+        return '<span class="object">%s</span>' % escape(repr(obj))
 
     def dispatch_repr(self, obj, recursive):
         if obj is helper:

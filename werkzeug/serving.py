@@ -126,7 +126,7 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
                     self.send_header('Date', self.date_time_string())
                 self.end_headers()
 
-            assert type(data) is str, 'applications must write bytes'
+            assert isinstance(data, bytes), 'applications must write bytes'
             self.wfile.write(data)
             self.wfile.flush()
 
@@ -149,7 +149,7 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
                     write(data)
                 # make sure the headers are sent
                 if not headers_sent:
-                    write('')
+                    write(b'')
             finally:
                 if hasattr(application_iter, 'close'):
                     application_iter.close()
@@ -222,8 +222,9 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
         if message is None:
             message = code in self.responses and self.responses[code][0] or ''
         if self.request_version != 'HTTP/0.9':
-            self.wfile.write("%s %d %s\r\n" %
-                             (self.protocol_version, code, message))
+            self.wfile.write(("%s %d %s\r\n" %
+                              (self.protocol_version, code, message)
+                             ).encode('ascii'))
 
     def version_string(self):
         return BaseHTTPRequestHandler.version_string(self).strip()

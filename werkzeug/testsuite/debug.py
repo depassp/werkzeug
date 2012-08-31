@@ -27,6 +27,7 @@ class DebugReprTestCase(WerkzeugTestCase):
             '[<span class="number">1</span>, <span class="number">2</span>]'
         assert debug_repr([1, 'test']) == \
             '[<span class="number">1</span>, <span class="string">\'test\'</span>]'
+        print(debug_repr([None]))
         assert debug_repr([None]) == \
             '[<span class="object">None</span>]'
 
