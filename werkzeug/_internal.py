@@ -10,14 +10,14 @@
 """
 import inspect
 from weakref import WeakKeyDictionary
-from io import StringIO
+from io import BytesIO
 from http.cookies import SimpleCookie, Morsel, CookieError
 from time import gmtime
 from datetime import datetime, date
 
 
 _logger = None
-_empty_stream = StringIO('')
+_empty_stream = BytesIO(b'')
 _signature_cache = WeakKeyDictionary()
 _epoch_ord = date(1970, 1, 1).toordinal()
 

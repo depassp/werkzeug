@@ -100,6 +100,10 @@ class TestTestCase(WerkzeugTestCase):
 
     def test_cookiejar_stores_cookie(self):
         c = Client(cookie_app)
+#        import logging
+#        logging.getLogger('http.cookiejar').setLevel(logging.DEBUG)
+        import http.cookiejar
+        http.cookiejar.debug = True
         appiter, code, headers = c.open()
         assert 'test' in c.cookie_jar._cookies['localhost.local']['/']
 
@@ -144,7 +148,7 @@ class TestTestCase(WerkzeugTestCase):
         assert req.form['test'] == 'normal value'
         assert req.files['test'].content_type == 'text/plain'
         assert req.files['test'].filename == 'test.txt'
-        assert req.files['test'].read() == 'test contents'
+        assert req.files['test'].read() == b'test contents'
 
     def test_environ_builder_headers(self):
         b = EnvironBuilder(environ_base={'HTTP_USER_AGENT': 'Foo/0.1'},
@@ -202,7 +206,7 @@ class TestTestCase(WerkzeugTestCase):
         assert builder.content_type == 'multipart/form-data'
         req = builder.get_request()
         assert req.form['foo'] == 'bar'
-        assert req.files['blafasel'].read() == 'foo'
+        assert req.files['blafasel'].read() == b'foo'
 
     def test_environ_builder_stream_switch(self):
         d = MultiDict(dict(foo='bar', blub='blah', hu='hum'))
@@ -240,7 +244,7 @@ class TestTestCase(WerkzeugTestCase):
         }
         for key, value in list(expected.items()):
             assert env[key] == value
-        assert env['wsgi.input'].read(0) == ''
+        assert env['wsgi.input'].read(0) == b''
 
         assert create_environ('/foo', 'http://example.com/')['SCRIPT_NAME'] == ''
 

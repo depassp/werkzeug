@@ -132,16 +132,17 @@ class DebugReprGenerator(object):
     del _sequence_repr_maker
 
     def regex_repr(self, obj):
-        pattern = repr(obj.pattern).decode('string-escape', 'ignore')
-        if pattern[:1] == 'u':
-            pattern = 'ur' + pattern[1:]
+        pattern = repr(obj.pattern).encode('ascii').decode('unicode-escape', 'ignore')
+        if pattern[:1] == 'b':
+            pattern = 'br' + pattern[1:]
         else:
             pattern = 'r' + pattern
         return 're.compile(<span class="string regex">%s</span>)' % pattern
 
     def string_repr(self, obj, limit=70):
         buf = ['<span class="string">']
-        escaped = escape(obj)
+        escaped = (escape(obj) if isinstance(obj, str)
+                   else escape(obj.decode('latin1')).encode('latin1'))
         a = repr(escaped[:limit])
         b = repr(escaped[limit:])
         if isinstance(obj, bytes):
@@ -153,7 +154,7 @@ class DebugReprGenerator(object):
         else:
             buf.append(a)
         buf.append('</span>')
-        return _add_subclass_info(''.join(buf), obj, (str, str))
+        return _add_subclass_info(''.join(buf), obj, (str, bytes))
 
     def dict_repr(self, d, recursive, limit=5):
         if recursive:
@@ -182,7 +183,7 @@ class DebugReprGenerator(object):
             return '<span class="help">%r</span>' % helper
         if isinstance(obj, (int, float, complex)):
             return '<span class="number">%r</span>' % obj
-        if isinstance(obj, str):
+        if isinstance(obj, (str, bytes)):
             return self.string_repr(obj)
         if isinstance(obj, RegexType):
             return self.regex_repr(obj)
