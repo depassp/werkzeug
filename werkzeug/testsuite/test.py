@@ -13,7 +13,7 @@
 
 import sys
 import unittest
-from io import StringIO
+from io import BytesIO
 
 from werkzeug.testsuite import WerkzeugTestCase
 
@@ -131,7 +131,7 @@ class TestTestCase(WerkzeugTestCase):
         assert b.content_type is None
         b.method = 'POST'
         assert b.content_type == 'application/x-www-form-urlencoded'
-        b.files.add_file('test', StringIO('test contents'), 'test.txt')
+        b.files.add_file('test', BytesIO(b'test contents'), 'test.txt')
         assert b.files['test'].content_type == 'text/plain'
         assert b.content_type == 'multipart/form-data'
         b.form['test'] = 'normal value'
@@ -198,7 +198,7 @@ class TestTestCase(WerkzeugTestCase):
         assert builder.content_type == 'application/x-www-form-urlencoded'
         builder.form['foo'] = 'bar'
         assert builder.content_type == 'application/x-www-form-urlencoded'
-        builder.files.add_file('blafasel', StringIO('foo'), 'test.txt')
+        builder.files.add_file('blafasel', BytesIO(b'foo'), 'test.txt')
         assert builder.content_type == 'multipart/form-data'
         req = builder.get_request()
         assert req.form['foo'] == 'bar'

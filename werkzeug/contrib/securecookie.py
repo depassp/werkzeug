@@ -88,6 +88,7 @@ r"""
     :copyright: (c) 2011 by the Werkzeug Team, see AUTHORS for more details.
     :license: BSD, see LICENSE for more details.
 """
+import base64
 import pickle as pickle
 from hmac import new as hmac
 from time import time
@@ -176,7 +177,7 @@ class SecureCookie(ModificationTrackingDict):
         if cls.serialization_method is not None:
             value = cls.serialization_method.dumps(value)
         if cls.quote_base64:
-            value = ''.join(value.encode('base64').splitlines()).strip()
+            value = ''.join(base64.b64encode(value).splitlines()).strip()
         return value
 
     @classmethod

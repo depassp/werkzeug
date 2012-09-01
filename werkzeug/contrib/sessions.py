@@ -77,7 +77,7 @@ def _urandom():
 
 
 def generate_key(salt=None):
-    return sha1('%s%s%s' % (salt, time(), _urandom())).hexdigest()
+    return sha1(('%s%s%s' % (salt, time(), _urandom())).encode('utf-8')).hexdigest()
 
 
 class ModificationTrackingDict(CallbackDict):
@@ -211,9 +211,10 @@ class FilesystemSessionStore(SessionStore):
         if path is None:
             path = tempfile.gettempdir()
         self.path = path
-        if isinstance(filename_template, str):
-            filename_template = filename_template.encode(
-                sys.getfilesystemencoding() or 'utf-8')
+
+        # XXX Python 3: not sure this is necessary
+        filename_template.encode(sys.getfilesystemencoding() or 'utf-8')
+
         assert not filename_template.endswith(_fs_transaction_suffix), \
             'filename templates may not end with %s' % _fs_transaction_suffix
         self.filename_template = filename_template
