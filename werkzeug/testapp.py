@@ -158,8 +158,7 @@ def render_testapp(req):
         eggs = ()
     else:
         eggs = list(pkg_resources.working_set)
-        eggs.sort(lambda a, b: cmp(a.project_name.lower(),
-                                   b.project_name.lower()))
+        eggs.sort(key=lambda a: a.project_name.lower())
     python_eggs = []
     for egg in eggs:
         try:

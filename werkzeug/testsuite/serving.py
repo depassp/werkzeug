@@ -65,17 +65,20 @@ class ServingTestCase(WerkzeugTestCase):
     def test_serving(self):
         server, addr = run_dev_server(test_app)
         rv = urllib.request.urlopen('http://%s/?foo=bar&baz=blah' % addr).read()
-        assert 'WSGI Information' in rv
-        assert 'foo=bar&amp;baz=blah' in rv
-        assert ('Werkzeug/%s' % version) in rv
+        assert b'WSGI Information' in rv
+        assert b'foo=bar&amp;baz=blah' in rv
+        assert ('Werkzeug/%s' % version).encode('ascii') in rv
 
     @silencestderr
     def test_broken_app(self):
         def broken_app(environ, start_response):
             1/0
         server, addr = run_dev_server(broken_app)
-        rv = urllib.request.urlopen('http://%s/?foo=bar&baz=blah' % addr).read()
-        assert 'Internal Server Error' in rv
+        # XXX: urlopen() in Python 3 raises an Exception on 500
+        opener = urllib.request.OpenerDirector()
+        opener.add_handler(urllib.request.HTTPHandler())
+        rv = opener.open('http://%s/?foo=bar&baz=blah' % addr).read()
+        assert b'Internal Server Error' in rv
 
 
 def suite():
