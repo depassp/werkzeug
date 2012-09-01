@@ -58,7 +58,7 @@ class InternalTestCase(WerkzeugTestCase):
         headers = response.get_wsgi_headers(create_environ())
         assert 'Content-Length' not in headers
 
-        response = Response(['Hällo Wörld'])
+        response = Response(['Hällo Wörld'.encode('utf8')])
         headers = response.get_wsgi_headers(create_environ())
         assert 'Content-Length' in headers
 

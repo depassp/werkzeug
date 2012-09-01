@@ -648,7 +648,7 @@ class BaseResponse(object):
         # the charset attribute, the data is set in the correct charset.
         if response is None:
             self.response = []
-        elif isinstance(response, str):
+        elif isinstance(response, (str, bytes)):
             self.data = response
         else:
             self.response = response
@@ -1009,8 +1009,8 @@ class BaseResponse(object):
         if self.automatically_set_content_length and \
            self.is_sequence and content_length is None and status != 304:
             try:
-                content_length = sum(len(str(x)) for x in self.response)
-            except UnicodeError:
+                content_length = sum(len(bytes(x)) for x in self.response)
+            except TypeError:
                 # aha, something non-bytestringy in there, too bad, we
                 # can't safely figure out the length of the response.
                 pass

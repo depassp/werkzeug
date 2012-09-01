@@ -40,6 +40,7 @@ def request_demo_app(environ, start_response):
     request = wrappers.BaseRequest(environ)
     assert 'werkzeug.request' in environ
     start_response('200 OK', [('Content-Type', 'text/plain')])
+    assert isinstance(environ['wsgi.input'], BytesIO)
     return [pickle.dumps({
         'args':             request.args,
         'args_as_list':     request.args.lists(),
@@ -84,7 +85,7 @@ class WrappersTestCase(WerkzeugTestCase):
         self.assert_environ(response['environ'], 'GET')
 
         # post requests with form data
-        response = client.post('/?blub=blah', data='foo=blub+hehe&blah=42',
+        response = client.post('/?blub=blah', data=b'foo=blub+hehe&blah=42',
                                content_type='application/x-www-form-urlencoded')
         assert response['args'] == MultiDict([('blub', 'blah')])
         assert response['args_as_list'] == [('blub', ['blah'])]
@@ -105,7 +106,7 @@ class WrappersTestCase(WerkzeugTestCase):
         self.assert_environ(response['environ'], 'PATCH')
 
         # post requests with json data
-        json = '{"foo": "bar", "blub": "blah"}'
+        json = b'{"foo": "bar", "blub": "blah"}'
         response = client.post('/?a=b', data=json, content_type='application/json')
         assert response['data'] == json
         assert response['args'] == MultiDict([('a', 'b')])
@@ -626,10 +627,10 @@ class WrappersTestCase(WerkzeugTestCase):
         assert resp.content_range.length == 1000
 
     def test_auto_content_length(self):
-        resp = wrappers.Response('Hello World!')
+        resp = wrappers.Response(b'Hello World!')
         assert resp.content_length == 12
 
-        resp = wrappers.Response(['Hello World!'])
+        resp = wrappers.Response([b'Hello World!'])
         assert resp.content_length is None
         assert resp.get_wsgi_headers({})['Content-Length'] == '12'
 

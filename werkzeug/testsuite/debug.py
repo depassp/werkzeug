@@ -53,9 +53,9 @@ class DebugReprTestCase(WerkzeugTestCase):
             '</span></span></span>}'
         assert debug_repr(dict(list(zip(list(range(10)), [None] * 10)))) == \
             '{<span class="pair"><span class="key"><span class="number">0</span></span>: <span class="value"><span class="object">None</span></span></span>, <span class="pair"><span class="key"><span class="number">1</span></span>: <span class="value"><span class="object">None</span></span></span>, <span class="pair"><span class="key"><span class="number">2</span></span>: <span class="value"><span class="object">None</span></span></span>, <span class="pair"><span class="key"><span class="number">3</span></span>: <span class="value"><span class="object">None</span></span></span>, <span class="extended"><span class="pair"><span class="key"><span class="number">4</span></span>: <span class="value"><span class="object">None</span></span></span>, <span class="pair"><span class="key"><span class="number">5</span></span>: <span class="value"><span class="object">None</span></span></span>, <span class="pair"><span class="key"><span class="number">6</span></span>: <span class="value"><span class="object">None</span></span></span>, <span class="pair"><span class="key"><span class="number">7</span></span>: <span class="value"><span class="object">None</span></span></span>, <span class="pair"><span class="key"><span class="number">8</span></span>: <span class="value"><span class="object">None</span></span></span>, <span class="pair"><span class="key"><span class="number">9</span></span>: <span class="value"><span class="object">None</span></span></span></span>}'
-        assert debug_repr((1, 'zwei', 'drei')) ==\
+        assert debug_repr((1, 'zwei', b'drei')) ==\
             '(<span class="number">1</span>, <span class="string">\'' \
-            'zwei\'</span>, <span class="string">u\'drei\'</span>)'
+            'zwei\'</span>, <span class="string">b\'drei\'</span>)'
 
     def test_custom_repr(self):
         class Foo(object):
@@ -73,8 +73,8 @@ class DebugReprTestCase(WerkzeugTestCase):
     def test_regex_repr(self):
         assert debug_repr(re.compile(r'foo\d')) == \
             're.compile(<span class="string regex">r\'foo\\d\'</span>)'
-        assert debug_repr(re.compile(r'foo\d')) == \
-            're.compile(<span class="string regex">ur\'foo\\d\'</span>)'
+        assert debug_repr(re.compile(br'foo\d')) == \
+            're.compile(<span class="string regex">br\'foo\\d\'</span>)'
 
     def test_set_repr(self):
         assert debug_repr(frozenset('x')) == \
@@ -94,7 +94,7 @@ class DebugReprTestCase(WerkzeugTestCase):
 
         assert debug_repr(Foo()) == \
             '<span class="brokenrepr">&lt;broken repr (ZeroDivisionError: ' \
-            'integer division or modulo by zero)&gt;</span>'
+            'division by zero)&gt;</span>'
 
 
 class DebugHelpersTestCase(WerkzeugTestCase):
