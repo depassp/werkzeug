@@ -1137,7 +1137,7 @@ class Headers(object):
 
         :return: list
         """
-        return [(k, v if isinstance(v, str) else v.decode(charset))
+        return [(k, v.decode(charset) if isinstance(v, bytes) else str(v))
                 for k, v in self]
 
     def copy(self):

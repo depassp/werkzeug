@@ -194,7 +194,7 @@ def extract_path_info(environ_or_baseurl, path_or_url, charset='utf-8',
                                   same server point to the same
                                   resource.
     """
-    from werkzeug.urls import uri_to_iri, url_fix
+    from werkzeug.urls import uri_to_iri
 
     def _as_iri(obj):
         try:
@@ -573,6 +573,7 @@ class FileWrapper(object):
         data = self.file.read(self.buffer_size)
         if data:
             return data
+        self.close()
         raise StopIteration()
 
 

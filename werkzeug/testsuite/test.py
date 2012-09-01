@@ -222,6 +222,8 @@ class TestTestCase(WerkzeugTestCase):
                                     boundary})[1]
             assert form == d
 
+            stream.close()
+
     def test_create_environ(self):
         env = create_environ('/foo?bar=baz', 'http://example.org/')
         expected = {
