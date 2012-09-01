@@ -12,14 +12,15 @@
  - `http.dump_cookie()`
   - Python 2: Non-ascii strings for values accepted
   - Python 3: Non-ascii strings for values will raise a `TypeError`. You should urlencode the values. (See http://stackoverflow.com/questions/1969232/allowed-characters-in-cookies for the incompatibility issues.)
-- IRI and URI
- - Python 2: IRI was a `unicode`, URI was a `str`
- - Python 3: IRI and URI are both (unicode) `str`
 - New function
  - `security.safe_bytes_cmp()`
 
-### Minor changes
+### URL
 
+- IRI and URI
+ - Python 2: IRI was a `unicode`, URI was a `str`
+ - Python 3: IRI and URI are both (unicode) `str`
+- `urls.url_decode_stream()` supports both `BytesIO`/`StringIO`.
 - `urls.url_encode()`
  - Python 2: default sort behaviour: `int`'s ascending, then `str`'s
  - Python 3: default sort behaviour: lexicographical order
