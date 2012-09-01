@@ -843,9 +843,6 @@ class LimitedStream(object):
                 last_pos = self._pos
         return result
 
-<<<<<<< HEAD
-    def __next__(self):
-=======
     def tell(self):
         """Returns the position of the stream.
 
@@ -853,8 +850,7 @@ class LimitedStream(object):
         """
         return self._pos
 
-    def next(self):
->>>>>>> master
+    def __next__(self):
         line = self.readline()
         if line is None:
             raise StopIteration()

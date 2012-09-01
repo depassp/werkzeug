@@ -625,11 +625,11 @@ class RoutingTestCase(WerkzeugTestCase):
         self.assert_equal(values, {})
 
         try:
-            a.match(u'/foo+bar')
-        except r.RequestRedirect, e:
+            a.match('/foo+bar')
+        except r.RequestRedirect as e:
             self.assert_equal(e.new_url, 'http://xn--n3h.example.com/'
                               'foo+bar/')
-        endpoint, values = a.match(u'/foo+bar/')
+        endpoint, values = a.match('/foo+bar/')
         self.assert_equal(endpoint, 'foobar')
         self.assert_equal(values, {})
 

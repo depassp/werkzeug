@@ -385,9 +385,9 @@ class TestTestCase(WerkzeugTestCase):
             return Response(str(request.environ['werkzeug._foo']))
 
         c = MyClient(test_app, response_wrapper=Response)
-        self.assert_equal(c.get('/').data, '1')
-        self.assert_equal(c.get('/').data, '2')
-        self.assert_equal(c.get('/').data, '3')
+        self.assert_equal(c.get('/').data, b'1')
+        self.assert_equal(c.get('/').data, b'2')
+        self.assert_equal(c.get('/').data, b'3')
 
 
 def suite():

@@ -436,7 +436,7 @@ class BaseRequest(object):
     @cached_property
     def full_path(self):
         """Requested path as unicode, including the query string."""
-        return self.path + u'?' + self.query_string
+        return self.path + '?' + self.query_string
 
     @cached_property
     def script_root(self):

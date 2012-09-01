@@ -728,7 +728,7 @@ class Client(object):
         # handle redirects
         redirect_chain = []
         while 1:
-            status_code = int(rv[1].split(None, 1)[0])
+            status_code = int(response[1].split(None, 1)[0])
             if status_code not in (301, 302, 303, 305, 307) \
                or not follow_redirects:
                 break

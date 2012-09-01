@@ -191,8 +191,8 @@ class HTTPUtilityTestCase(WerkzeugTestCase):
 
     def test_etags_nonzero(self):
         etags = http.parse_etags('w/"foo"')
-        self.assert_(bool(etags))
-        self.assert_(etags.contains_raw('w/"foo"'))
+        self.assertTrue(bool(etags))
+        self.assertTrue(etags.contains_raw('w/"foo"'))
 
     def test_parse_date(self):
         assert http.parse_date('Sun, 06 Nov 1994 08:49:37 GMT    ') == datetime(1994, 11, 6, 8, 49, 37)
