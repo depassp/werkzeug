@@ -10,7 +10,7 @@
     :license: BSD, see LICENSE for more details.
 """
 import re
-from io import StringIO
+from io import BytesIO
 from tempfile import TemporaryFile
 from itertools import chain, repeat
 from functools import update_wrapper
@@ -39,7 +39,7 @@ def default_stream_factory(total_content_length, filename, content_type,
     """The stream factory that is used per default."""
     if total_content_length > 1024 * 500:
         return TemporaryFile('wb+')
-    return StringIO()
+    return BytesIO()
 
 
 def parse_form_data(environ, stream_factory=None, charset='utf-8',
@@ -226,6 +226,8 @@ def _line_parse(line):
     """Removes line ending characters and returns a tuple (`stripped_line`,
     `is_terminated`).
     """
+    if isinstance(line, bytes):
+        line = line.decode('latin1')
     if line[-2:] == '\r\n':
         return line[:-2], True
     elif line[-1:] in '\r\n':
@@ -326,7 +328,6 @@ class MultiPartParser(object):
         return self.charset
 
     def start_file_streaming(self, filename, headers, total_content_length):
-        filename = _decode_unicode(filename, self.charset, self.errors)
         filename = self._fix_ie_filename(filename)
         content_type = headers.get('content_type')
         try:
@@ -353,8 +354,8 @@ class MultiPartParser(object):
             self.fail('Boundary longer than buffer size')
 
     def parse(self, file, boundary, content_length):
-        next_part = '--' + boundary
-        last_part = next_part + '--'
+        next_part = ('--' + boundary).encode('ascii')
+        last_part = next_part + b'--'
 
         form = []
         files = []
@@ -397,12 +398,12 @@ class MultiPartParser(object):
                     filename, headers, content_length)
                 _write = container.write
 
-            buf = ''
+            buf = b''
             for line in iterator:
                 if not line:
                     self.fail('unexpected end of stream')
 
-                if line[:2] == '--':
+                if line[:2] == b'--':
                     terminator = line.rstrip()
                     if terminator in (next_part, last_part):
                         break
@@ -417,7 +418,7 @@ class MultiPartParser(object):
                 # this is usually a newline delimiter.
                 if buf:
                     _write(buf)
-                    buf = ''
+                    buf = b''
 
                 # If the line ends with windows CRLF we write everything except
                 # the last two bytes.  In all other cases however we write
@@ -428,11 +429,11 @@ class MultiPartParser(object):
                 # truncate the stream.  However we do have to make sure that
                 # if something else than a newline is in there we write it
                 # out.
-                if line[-2:] == '\r\n':
-                    buf = '\r\n'
+                if line[-2:] == b'\r\n':
+                    buf = b'\r\n'
                     cutoff = -2
                 else:
-                    buf = line[-1]
+                    buf = line[-1:]
                     cutoff = -1
                 _write(line[:cutoff])
 
@@ -449,7 +450,7 @@ class MultiPartParser(object):
             # if we have a leftover in the buffer that is not a newline
             # character we have to flush it, otherwise we will chop of
             # certain values.
-            if buf not in ('', '\r', '\n', '\r\n'):
+            if buf not in (b'', b'\r', b'\n', b'\r\n'):
                 _write(buf)
 
             if is_file:
@@ -457,7 +458,7 @@ class MultiPartParser(object):
                 files.append((name, FileStorage(container, filename, name,
                                                 headers=headers)))
             else:
-                form.append((name, _decode_unicode(''.join(container),
+                form.append((name, _decode_unicode(b''.join(container),
                                                    part_charset, self.errors)))
 
         return self.cls(form), self.cls(files)
