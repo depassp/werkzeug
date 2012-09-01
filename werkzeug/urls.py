@@ -8,6 +8,7 @@
     :copyright: (c) 2011 by the Werkzeug Team, see AUTHORS for more details.
     :license: BSD, see LICENSE for more details.
 """
+import io
 import urllib.parse
 
 from werkzeug._internal import _decode_unicode
@@ -239,7 +240,7 @@ def url_decode(s, charset='utf-8', decode_keys=False, include_empty=True,
 
 
 def url_decode_stream(stream, charset='utf-8', decode_keys=False,
-                      include_empty=True, errors='replace', separator='&',
+                      include_empty=True, errors='replace', separator=b'&',
                       cls=None, limit=None, return_iterator=False):
     """Works like :func:`url_decode` but decodes a stream.  The behavior
     of stream and limit follows functions like
@@ -269,7 +270,18 @@ def url_decode_stream(stream, charset='utf-8', decode_keys=False,
         cls = lambda x: x
     elif cls is None:
         cls = MultiDict
-    pair_iter = make_chunk_iter(stream, separator, limit)
+    if isinstance(stream, io.TextIOBase):
+        def decorate(f):
+            def new_f(size):
+                return f(size).encode('ascii')
+            return new_f
+        stream.read = decorate(stream.read)
+        def wrap(iterable):
+            for item in iterable:
+                yield item.decode('ascii')
+        pair_iter = wrap(make_chunk_iter(stream, separator, limit))
+    else:
+        pair_iter = make_chunk_iter(stream, separator, limit)
     return cls(_url_decode_impl(pair_iter, charset, decode_keys,
                                 include_empty, errors))
 
@@ -279,6 +291,8 @@ def _url_decode_impl(pair_iter, charset, decode_keys, include_empty,
     for pair in pair_iter:
         if not pair:
             continue
+        if isinstance(pair, bytes):
+            pair = pair.decode('ascii')
         if '=' in pair:
             key, value = pair.split('=', 1)
         else:

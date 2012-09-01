@@ -10,7 +10,7 @@
 """
 
 import unittest
-from io import StringIO
+from io import BytesIO, StringIO
 
 from werkzeug.testsuite import WerkzeugTestCase
 
@@ -47,12 +47,13 @@ class URLsTestCase(WerkzeugTestCase):
         item1 = 'a' * 100000
         item2 = 'b' * 400
         string = 'a=%s&b=%s&c=%s' % (item1, item2, item2)
-        gen = urls.url_decode_stream(StringIO(string), limit=len(string),
-                                     return_iterator=True)
-        self.assert_equal(next(gen), ('a', item1))
-        self.assert_equal(next(gen), ('b', item2))
-        self.assert_equal(next(gen), ('c', item2))
-        self.assert_raises(StopIteration, gen.__next__)
+        for stream in [StringIO(string), BytesIO(string.encode('ascii'))]:
+            gen = urls.url_decode_stream(stream, limit=len(string),
+                                         return_iterator=True)
+            self.assert_equal(next(gen), ('a', item1))
+            self.assert_equal(next(gen), ('b', item2))
+            self.assert_equal(next(gen), ('c', item2))
+            self.assert_raises(StopIteration, gen.__next__)
 
     def test_url_encoding(self):
         assert urls.url_encode({'foo': 'bar 45'}) == 'foo=bar+45'

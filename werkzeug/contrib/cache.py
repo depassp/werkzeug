@@ -78,7 +78,7 @@ def _items(mappingorseq):
         ...    assert k*k == v
 
     """
-    return iter(list(mappingorseq.items())) if hasattr(mappingorseq, 'iteritems') \
+    return iter(list(mappingorseq.items())) if hasattr(mappingorseq, 'items') \
         else mappingorseq
 
 
@@ -483,9 +483,9 @@ class RedisCache(BaseCache):
         integers as regular string and pickle dumps everything else.
         """
         t = type(value)
-        if t is int or t is int:
+        if t is int:
             return str(value)
-        return '!' + pickle.dumps(value)
+        return b'!' + pickle.dumps(value)
 
     def load_object(self, value):
         """The reversal of :meth:`dump_object`.  This might be callde with
@@ -493,7 +493,7 @@ class RedisCache(BaseCache):
         """
         if value is None:
             return None
-        if value.startswith('!'):
+        if value.startswith(b'!'):
             return pickle.loads(value[1:])
         try:
             return int(value)

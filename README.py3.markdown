@@ -15,6 +15,8 @@
 - IRI and URI
  - Python 2: IRI was a `unicode`, URI was a `str`
  - Python 3: IRI and URI are both (unicode) `str`
+- New function
+ - `security.safe_bytes_cmp()`
 
 ### Minor changes
 

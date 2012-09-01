@@ -73,7 +73,7 @@ class FormParserTestCase(WerkzeugTestCase):
         data = ('--foo\r\nContent-Disposition: form-field; name=foo\r\n\r\n'
                 'Hello World\r\n'
                 '--foo\r\nContent-Disposition: form-field; name=bar\r\n\r\n'
-                'bar=baz\r\n--foo--')
+                'bar=baz\r\n--foo--').encode('ascii')
         req = Request.from_values(input_stream=BytesIO(data),
                                   content_length=len(data),
                                   content_type='multipart/form-data; boundary=foo',

@@ -9,6 +9,7 @@
     :copyright: (c) 2011 by the Werkzeug Team, see AUTHORS for more details.
     :license: BSD, see LICENSE for more details.
 """
+import base64
 import re
 from io import BytesIO
 from tempfile import TemporaryFile
@@ -410,7 +411,10 @@ class MultiPartParser(object):
 
                 if transfer_encoding is not None:
                     try:
-                        line = line.decode(transfer_encoding)
+                        if transfer_encoding == 'base64':
+                            line = base64.b64decode(line)
+                        else:
+                            line = line.decode(transfer_encoding)
                     except Exception:
                         self.fail('could not decode transfer encoded chunk')
 
