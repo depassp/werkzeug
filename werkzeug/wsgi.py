@@ -589,7 +589,7 @@ def make_chunk_iter_func(stream, limit, buffer_size):
     """Helper for the line and chunk iter functions."""
     if hasattr(stream, 'read'):
         return partial(make_limited_stream(stream, limit).read, buffer_size)
-    return iter(chain(stream, repeat(''))).next
+    return iter(chain(stream, repeat(''))).__next__
 
 
 def make_line_iter(stream, limit=None, buffer_size=10 * 1024):
@@ -627,12 +627,12 @@ def make_line_iter(stream, limit=None, buffer_size=10 * 1024):
             new_buf = []
             for item in chain(buffer, new_data.splitlines(True)):
                 new_buf.append(item)
-                if item and item[-1:] in '\r\n':
-                    yield ''.join(new_buf)
+                if item and item[-1:] in b'\r\n':
+                    yield b''.join(new_buf)
                     new_buf = []
             buffer = new_buf
         if buffer:
-            yield ''.join(buffer)
+            yield b''.join(buffer)
 
     # This hackery is necessary to merge 'foo\r' and '\n' into one item
     # of 'foo\r\n' if we were unlucky and we hit a chunk boundary.
@@ -667,6 +667,8 @@ def make_chunk_iter(stream, separator, limit=None, buffer_size=10 * 1024):
     :param buffer_size: The optional buffer size.
     """
     _read = make_chunk_iter_func(stream, limit, buffer_size)
+    if isinstance(separator, str):
+        separator = separator.encode('latin1')
     _split = re.compile(b'(' + re.escape(separator) + b')').split
     buffer = []
     while 1:

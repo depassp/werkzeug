@@ -657,8 +657,8 @@ class Client(object):
         """Resolves a single redirect and triggers the request again
         directly on this redirect client.
         """
-        scheme, netloc, script_root, qs, anchor = urlparse.urlsplit(new_location)
-        base_url = urlparse.urlunsplit((scheme, netloc, '', '', '')).rstrip('/') + '/'
+        scheme, netloc, script_root, qs, anchor = urllib.parse.urlsplit(new_location)
+        base_url = urllib.parse.urlunsplit((scheme, netloc, '', '', '')).rstrip('/') + '/'
 
         cur_server_name = netloc.split(':', 1)[0].split('.')
         real_server_name = get_host(environ).rsplit(':', 1)[0].split('.')

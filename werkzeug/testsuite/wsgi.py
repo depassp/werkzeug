@@ -223,19 +223,19 @@ class WSGIUtilsTestCase(WerkzeugTestCase):
             assert lines == [b'abc\r', b'def\r\n', b'ghi']
 
     def test_iter_functions_support_iterators(self):
-        data = ['abcdef\r\nghi', 'jkl\r\nmnopqrstuvwxyz\r', '\nABCDEFGHIJK']
+        data = [b'abcdef\r\nghi', b'jkl\r\nmnopqrstuvwxyz\r', b'\nABCDEFGHIJK']
         lines = list(wsgi.make_line_iter(data))
-        self.assert_equal(lines, ['abcdef\r\n', 'ghijkl\r\n', 'mnopqrstuvwxyz\r\n', 'ABCDEFGHIJK'])
+        self.assert_equal(lines, [b'abcdef\r\n', b'ghijkl\r\n', b'mnopqrstuvwxyz\r\n', b'ABCDEFGHIJK'])
 
     def test_make_chunk_iter(self):
-        data = ['abcdefXghi', 'jklXmnopqrstuvwxyzX', 'ABCDEFGHIJK']
+        data = [b'abcdefXghi', b'jklXmnopqrstuvwxyzX', b'ABCDEFGHIJK']
         rv = list(wsgi.make_chunk_iter(data, 'X'))
-        self.assert_equal(rv, ['abcdef', 'ghijkl', 'mnopqrstuvwxyz', 'ABCDEFGHIJK'])
+        self.assert_equal(rv, [b'abcdef', b'ghijkl', b'mnopqrstuvwxyz', b'ABCDEFGHIJK'])
 
-        data = 'abcdefXghijklXmnopqrstuvwxyzXABCDEFGHIJK'
-        test_stream = StringIO(data)
+        data = b'abcdefXghijklXmnopqrstuvwxyzXABCDEFGHIJK'
+        test_stream = BytesIO(data)
         rv = list(wsgi.make_chunk_iter(test_stream, 'X', limit=len(data), buffer_size=4))
-        self.assert_equal(rv, ['abcdef', 'ghijkl', 'mnopqrstuvwxyz', 'ABCDEFGHIJK'])
+        self.assert_equal(rv, [b'abcdef', b'ghijkl', b'mnopqrstuvwxyz', b'ABCDEFGHIJK'])
 
     def test_lines_longer_buffer_size(self):
         data = b'1234567890\n1234567890\n'
