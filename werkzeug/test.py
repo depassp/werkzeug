@@ -41,8 +41,6 @@ def stream_encode_multipart(values, use_tempfile=True, threshold=1024 * 500,
     if use_tempfile:
         def write(string):
             stream, total_length, on_disk = _closure
-            if isinstance(string, str):
-                string = string.encode('ascii')
             if on_disk:
                 stream.write(string)
             else:
@@ -64,8 +62,8 @@ def stream_encode_multipart(values, use_tempfile=True, threshold=1024 * 500,
 
     for key, values in values.iterlists():
         for value in values:
-            write('--%s\r\nContent-Disposition: form-data; name="%s"' %
-                  (boundary, key))
+            write(('--%s\r\nContent-Disposition: form-data; name="%s"' %
+                   (boundary, key)).encode('ascii'))
             reader = getattr(value, 'read', None)
             if reader is not None:
                 filename = getattr(value, 'filename',
@@ -76,10 +74,10 @@ def stream_encode_multipart(values, use_tempfile=True, threshold=1024 * 500,
                         mimetypes.guess_type(filename)[0] or \
                         'application/octet-stream'
                 if filename is not None:
-                    write('; filename="%s"\r\n' % filename)
+                    write(('; filename="%s"\r\n' % filename).encode('ascii'))
                 else:
-                    write('\r\n')
-                write('Content-Type: %s\r\n\r\n' % content_type)
+                    write(b'\r\n')
+                write(('Content-Type: %s\r\n\r\n' % content_type).encode('ascii'))
                 while 1:
                     chunk = reader(16384)
                     if not chunk:
@@ -88,9 +86,9 @@ def stream_encode_multipart(values, use_tempfile=True, threshold=1024 * 500,
             else:
                 if isinstance(value, str):
                     value = value.encode(charset)
-                write('\r\n\r\n' + str(value))
-            write('\r\n')
-    write('--%s--\r\n' % boundary)
+                write(b'\r\n\r\n' + value)
+            write(b'\r\n')
+    write(('--%s--\r\n' % boundary).encode('ascii'))
 
     length = int(_closure[0].tell())
     _closure[0].seek(0)
@@ -125,14 +123,14 @@ class _TestCookieHeaders(object):
         headers = []
         name = name.lower()
         for k, v in self.headers:
-            if k.lower() == name:
+            if k.lower() == name.lower():
                 headers.append(v)
         return headers
 
     def get_all(self, name, default=None):
         rv = []
         for k, v in self.headers:
-            if k.lower() == name:
+            if k.lower() == name.lower():
                 rv.append(v)
         return rv or default or []
 
@@ -277,8 +275,12 @@ class EnvironBuilder(object):
             path = iri_to_uri(path, charset)
         self.path = path
         if base_url is not None:
-            base_url = iri_to_uri(base_url, charset)
-            base_url = url_fix(base_url, charset)
+            try:
+                base_url.encode('latin1')
+            except:
+                base_url = iri_to_uri(base_url, charset)
+            else:
+                base_url = url_fix(base_url, charset)
         self.base_url = base_url
         if isinstance(query_string, str):
             self.query_string = query_string
