@@ -82,7 +82,8 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
             'SERVER_SOFTWARE':      self.server_version,
             'REQUEST_METHOD':       self.command,
             'SCRIPT_NAME':          '',
-            'PATH_INFO':            unquote(path_info),
+            # NOTE: PEP 3333 for Python 3
+            'PATH_INFO':            unquote(path_info, encoding='latin1'),
             'QUERY_STRING':         query,
             'CONTENT_TYPE':         self.headers.get('Content-Type', ''),
             'CONTENT_LENGTH':       self.headers.get('Content-Length', ''),

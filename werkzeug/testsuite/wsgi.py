@@ -224,6 +224,15 @@ class WSGIUtilsTestCase(WerkzeugTestCase):
             lines = list(wsgi.make_line_iter(BytesIO(data), limit=len(data), buffer_size=4))
             self.assert_equal(lines, [b'1234567890\n', b'1234567890\n'])
 
+    def test_pep3333_path_info(self):
+        env = create_environ('/föö-bar', 'http://☃.example.com')
+        self.assert_equal(env['PATH_INFO'], '/föö-bar'.encode('utf-8').decode('latin1'))
+        self.assert_equal(wsgi.get_current_url(env), 'http://xn--n3h.example.com/f%C3%B6%C3%B6-bar')
+
+        env = create_environ('/f%C3%B6%C3%B6-bar', 'http://☃.example.com')
+        self.assert_equal(env['PATH_INFO'], '/föö-bar'.encode('utf-8').decode('latin1'))
+        self.assert_equal(wsgi.get_current_url(env), 'http://xn--n3h.example.com/f%C3%B6%C3%B6-bar')
+
 
 def suite():
     suite = unittest.TestSuite()

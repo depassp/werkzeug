@@ -62,11 +62,11 @@ def get_current_url(environ, root_only=False, strip_querystring=False,
     cat = tmp.append
     if host_only:
         return ''.join(tmp) + '/'
-    cat(urllib.parse.quote(environ.get('SCRIPT_NAME', '').rstrip('/')))
+    cat(urllib.parse.quote(environ.get('SCRIPT_NAME', '').rstrip('/'), encoding='latin1'))
     if root_only:
         cat('/')
     else:
-        cat(urllib.parse.quote('/' + environ.get('PATH_INFO', '').lstrip('/')))
+        cat(urllib.parse.quote('/' + environ.get('PATH_INFO', '').lstrip('/'), encoding='latin1'))
         if not strip_querystring:
             qs = environ.get('QUERY_STRING')
             if qs:
