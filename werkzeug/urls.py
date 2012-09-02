@@ -72,7 +72,7 @@ def _unquote(s, unsafe=b''):
     assert isinstance(s, str), 'unquote only works on str'
     rv = s.split('%')
     if len(rv) == 1:
-        return s.encode('ascii')
+        return s.encode('latin1')
     s = rv[0].encode('ascii')
     for item in rv[1:]:
         try:
