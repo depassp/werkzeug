@@ -266,6 +266,8 @@ class EnvironBuilder(object):
                  content_length=None, errors_stream=None, multithread=False,
                  multiprocess=False, run_once=False, headers=None, data=None,
                  environ_base=None, environ_overrides=None, charset='utf-8'):
+        if isinstance(path, bytes):
+            path = path.decode('latin1')
         if query_string is None and '?' in path:
             path, query_string = path.split('?', 1)
         self.charset = charset
