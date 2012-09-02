@@ -639,6 +639,16 @@ class RoutingTestCase(WerkzeugTestCase):
         url = a.build('foobar', {}, force_external=True)
         self.assert_equal(url, 'http://xn--n3h.example.com/foo+bar/')
 
+    def test_pep3333_routing(self):
+        m = r.Map([
+            r.Rule('/foo/<bar>', endpoint='foo')
+        ])
+        env = create_environ('/foo/bäär', 'http://☃.example.com')
+        a = m.bind_to_environ(env)
+        endpoint, values = a.match()
+        self.assert_equal(endpoint, 'foo')
+        self.assert_equal(values, {'bar': 'bäär'})
+
 
 def suite():
     suite = unittest.TestSuite()

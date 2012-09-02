@@ -1192,9 +1192,10 @@ class Map(object):
                 subdomain = '<invalid>'
             else:
                 subdomain = '.'.join([_f for _f in cur_server_name[:offset] if _f])
+        path_info = environ.get('PATH_INFO', '').encode('latin1')
         return Map.bind(self, server_name, environ.get('SCRIPT_NAME'),
                         subdomain, environ['wsgi.url_scheme'],
-                        environ['REQUEST_METHOD'], environ.get('PATH_INFO'),
+                        environ['REQUEST_METHOD'], path_info,
                         query_args=environ.get('QUERY_STRING', ''))
 
     def update(self):

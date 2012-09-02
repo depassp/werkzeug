@@ -541,8 +541,7 @@ class EnvironBuilder(object):
 
         def _path_encode(x):
             x = _unquote(x)
-            if isinstance(x, bytes):
-                x = x.decode(self.charset)
+            x = x.decode('latin1')  # NOTE: PEP 3333 for Python 3
             return x
 
         result.update({
