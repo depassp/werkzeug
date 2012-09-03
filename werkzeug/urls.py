@@ -389,14 +389,10 @@ def url_quote(s, charset='utf-8', safe='/:'):
     :param charset: the charset to be used.
     :param safe: an optional sequence of safe characters.
     """
-    if isinstance(s, str):
-        s = s.encode(charset)
-    elif not isinstance(s, str):
-        s = str(s)
-    if isinstance(safe, str):
-        safe = safe.encode(charset)
-    elif not isinstance(safe, str):
-        safe = str(safe)
+    if not isinstance(s, bytes):
+        s = str(s).encode(charset)
+    if not isinstance(safe, bytes):
+        safe = str(safe).encode(charset)
     return _quote(s, safe=safe)
 
 
