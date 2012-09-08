@@ -818,7 +818,7 @@ class Rule(RuleFactory):
                 tmp.append(data)
         return '<%s %r%s -> %s>' % (
             self.__class__.__name__,
-            (''.join(tmp).encode(charset)).lstrip('|'),
+            (''.join(tmp)).lstrip('|'),
             self.methods is not None and ' (%s)' % \
                 ', '.join(self.methods) or '',
             self.endpoint
@@ -1394,7 +1394,7 @@ class MapAdapter(object):
                     path + '/', query_args))
             except RequestAliasRedirect as e:
                 raise RequestRedirect(self.make_alias_redirect_url(
-                    path, rule.endpoint, e.matched_values, method, query_args))
+                    path_, rule.endpoint, e.matched_values, method, query_args))
             if rv is None:
                 continue
             if rule.methods is not None and method not in rule.methods:
