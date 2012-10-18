@@ -784,8 +784,11 @@ def dump_cookie(key, value='', max_age=None, expires=None, path='/',
     except UnicodeEncodeError:
         raise TypeError('invalid key %r' % key)
     try:
-        value.encode('ascii')
-    except UnicodeEncodeError:
+        if isinstance(value, bytes):
+            value = str(value, 'ascii')
+        else:
+            value.encode('ascii')
+    except UnicodeError:
         raise TypeError('invalid value %r' % value)
     value = quote_header_value(value)
     morsel = _ExtendedMorsel(key, value)
