@@ -353,7 +353,6 @@ class EnvironBuilder(object):
         if value is None:
             scheme = 'http'
             netloc = 'localhost'
-            scheme = 'http'
             script_root = ''
         else:
             scheme, netloc, script_root, qs, anchor = urllib.parse.urlsplit(value)
