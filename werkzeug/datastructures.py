@@ -2534,7 +2534,7 @@ class FileStorage(object):
         from shutil import copyfileobj
         close_dst = False
         if isinstance(dst, str):
-            dst = file(dst, 'wb')
+            dst = open(dst, 'wb')
             close_dst = True
         try:
             copyfileobj(self.stream, dst, buffer_size)
