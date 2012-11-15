@@ -328,7 +328,7 @@ class FeedEntry(object):
             yield '  <link %s/>\n' % ''.join('%s="%s" ' % \
                 (k, escape(link[k], True)) for k in link)
         for category in self.categories:
-            yield u'  <category %s/>\n' % ''.join('%s="%s" ' % \
+            yield '  <category %s/>\n' % ''.join('%s="%s" ' % \
                 (k, escape(category[k], True)) for k in category)
         if self.summary:
             yield '  ' + _make_text_block('summary', self.summary,
