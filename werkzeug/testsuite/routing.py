@@ -10,6 +10,8 @@
 """
 import unittest
 
+from six import PY3
+
 from werkzeug.testsuite import WerkzeugTestCase
 
 from werkzeug import routing as r
@@ -36,7 +38,7 @@ class RoutingTestCase(WerkzeugTestCase):
         adapter = map.bind('example.org', '/test')
         try:
             adapter.match('/bar')
-        except r.RequestRedirect, e:
+        except r.RequestRedirect as e:
             assert e.new_url == 'http://example.org/test/bar/'
         else:
             self.fail('Expected request redirect')
@@ -44,7 +46,7 @@ class RoutingTestCase(WerkzeugTestCase):
         adapter = map.bind('example.org', '/')
         try:
             adapter.match('/bar')
-        except r.RequestRedirect, e:
+        except r.RequestRedirect as e:
             assert e.new_url == 'http://example.org/bar/'
         else:
             self.fail('Expected request redirect')
@@ -52,7 +54,7 @@ class RoutingTestCase(WerkzeugTestCase):
         adapter = map.bind('example.org', '/')
         try:
             adapter.match('/bar', query_args={'aha': 'muhaha'})
-        except r.RequestRedirect, e:
+        except r.RequestRedirect as e:
             assert e.new_url == 'http://example.org/bar/?aha=muhaha'
         else:
             self.fail('Expected request redirect')
@@ -60,7 +62,7 @@ class RoutingTestCase(WerkzeugTestCase):
         adapter = map.bind('example.org', '/')
         try:
             adapter.match('/bar', query_args='aha=muhaha')
-        except r.RequestRedirect, e:
+        except r.RequestRedirect as e:
             assert e.new_url == 'http://example.org/bar/?aha=muhaha'
         else:
             self.fail('Expected request redirect')
@@ -69,7 +71,7 @@ class RoutingTestCase(WerkzeugTestCase):
                                                      'http://example.org/'))
         try:
             adapter.match()
-        except r.RequestRedirect, e:
+        except r.RequestRedirect as e:
             assert e.new_url == 'http://example.org/bar/?foo=bar'
         else:
             self.fail('Expected request redirect')
@@ -191,7 +193,7 @@ class RoutingTestCase(WerkzeugTestCase):
         dispatch = lambda p, q=False: Response.force_type(adapter.dispatch(view_func, p,
                                                           catch_http_exceptions=q), env)
 
-        assert dispatch('/').data == "('root', {})"
+        assert dispatch('/').data == b"('root', {})"
         assert dispatch('/foo').status_code == 301
         raise_this = r.NotFound()
         self.assert_raises(r.NotFound, lambda: dispatch('/bar'))
@@ -229,7 +231,7 @@ class RoutingTestCase(WerkzeugTestCase):
         adapter = map.bind('localhost', '/')
         try:
             adapter.match(u'/öäü')
-        except r.RequestRedirect, e:
+        except r.RequestRedirect as e:
             assert e.new_url == 'http://localhost/%C3%B6%C3%A4%C3%BC/'
         else:
             self.fail('expected request redirect exception')
@@ -240,7 +242,7 @@ class RoutingTestCase(WerkzeugTestCase):
         adapter = map.bind('localhost', '/')
         try:
             adapter.match(u'/foo/42')
-        except r.RequestRedirect, e:
+        except r.RequestRedirect as e:
             assert e.new_url == 'http://localhost/foo'
         else:
             self.fail('expected request redirect exception')
@@ -251,7 +253,7 @@ class RoutingTestCase(WerkzeugTestCase):
         adapter = map.bind('localhost', '/', subdomain='other')
         try:
             adapter.match(u'/foo/42')
-        except r.RequestRedirect, e:
+        except r.RequestRedirect as e:
             assert e.new_url == 'http://test.localhost/foo'
         else:
             self.fail('expected request redirect exception')
@@ -516,7 +518,7 @@ class RoutingTestCase(WerkzeugTestCase):
         def ensure_redirect(path, new_url, args=None):
             try:
                 a.match(path, query_args=args)
-            except r.RequestRedirect, e:
+            except r.RequestRedirect as e:
                 assert e.new_url == 'http://example.com' + new_url
             else:
                 assert False, 'expected redirect'
@@ -566,7 +568,7 @@ class RoutingTestCase(WerkzeugTestCase):
         assert a.match('/foo/') == ('x', {'domain': 'example.com', 'page': 1})
         try:
             a.match('/foo')
-        except r.RequestRedirect, e:
+        except r.RequestRedirect as e:
             assert e.new_url == 'http://www.example.com/foo/'
         else:
             assert False, 'expected redirect'
@@ -576,7 +578,7 @@ class RoutingTestCase(WerkzeugTestCase):
         assert a.match('/2') == ('x', {'domain': 'example.com', 'page': 2})
         try:
             a.match('/1')
-        except r.RequestRedirect, e:
+        except r.RequestRedirect as e:
             assert e.new_url == 'http://www.example.com/foo/'
         else:
             assert False, 'expected redirect'
@@ -617,7 +619,7 @@ class RoutingTestCase(WerkzeugTestCase):
         a = m.bind(u'☃.example.com')
         try:
             a.match(u'/войти')
-        except r.RequestRedirect, e:
+        except r.RequestRedirect as e:
             self.assert_equal(e.new_url, 'http://xn--n3h.example.com/'
                               '%D0%B2%D0%BE%D0%B9%D1%82%D0%B8/')
         endpoint, values = a.match(u'/войти/')
@@ -626,7 +628,7 @@ class RoutingTestCase(WerkzeugTestCase):
 
         try:
             a.match(u'/foo+bar')
-        except r.RequestRedirect, e:
+        except r.RequestRedirect as e:
             self.assert_equal(e.new_url, 'http://xn--n3h.example.com/'
                               'foo+bar/')
         endpoint, values = a.match(u'/foo+bar/')
@@ -638,6 +640,17 @@ class RoutingTestCase(WerkzeugTestCase):
 
         url = a.build('foobar', {}, force_external=True)
         self.assert_equal(url, 'http://xn--n3h.example.com/foo+bar/')
+
+    def test_pep3333_routing(self):
+        if PY3:
+            m = r.Map([
+                r.Rule('/foo/<bar>', endpoint='foo')
+            ])
+            env = create_environ('/foo/bäär', 'http://☃.example.com')
+            a = m.bind_to_environ(env)
+            endpoint, values = a.match()
+            self.assert_equal(endpoint, 'foo')
+            self.assert_equal(values, {'bar': 'bäär'})
 
 
 def suite():

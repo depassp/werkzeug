@@ -10,8 +10,13 @@
 """
 import re
 import os
-import urllib
-import urlparse
+try:
+    from urllib.parse import quote, urljoin, urlsplit
+except ImportError:
+    # Python < 3
+    from urllib import quote
+    from urlparse import urljoin, urlsplit
+import collections
 import posixpath
 import mimetypes
 from itertools import chain, repeat
@@ -20,8 +25,16 @@ from time import time, mktime
 from datetime import datetime
 from functools import partial
 
+from six import PY3, string_types, text_type
+
 from werkzeug._internal import _patch_wrapper
 from werkzeug.http import is_resource_modified, http_date
+
+if PY3:
+    # NOTE: PEP 3333
+    urlquote = lambda _: quote(_, encoding='latin1')
+else:
+    urlquote = quote
 
 
 def responder(f):
@@ -62,11 +75,11 @@ def get_current_url(environ, root_only=False, strip_querystring=False,
     cat = tmp.append
     if host_only:
         return ''.join(tmp) + '/'
-    cat(urllib.quote(environ.get('SCRIPT_NAME', '').rstrip('/')))
+    cat(urlquote(environ.get('SCRIPT_NAME', '').rstrip('/')))
     if root_only:
         cat('/')
     else:
-        cat(urllib.quote('/' + environ.get('PATH_INFO', '').lstrip('/')))
+        cat(urlquote('/' + environ.get('PATH_INFO', '').lstrip('/')))
         if not strip_querystring:
             qs = environ.get('QUERY_STRING')
             if qs:
@@ -193,12 +206,14 @@ def extract_path_info(environ_or_baseurl, path_or_url, charset='utf-8',
                                   same server point to the same
                                   resource.
     """
-    from werkzeug.urls import uri_to_iri, url_fix
+    from werkzeug.urls import uri_to_iri
 
     def _as_iri(obj):
-        if not isinstance(obj, unicode):
-            return uri_to_iri(obj, charset, errors)
-        return obj
+        try:
+            obj.encode('ascii')  # XXX Python 3 hack
+        except UnicodeEncodeError:
+            return obj
+        return uri_to_iri(obj, charset, errors)
 
     def _normalize_netloc(scheme, netloc):
         parts = netloc.split(u'@', 1)[-1].split(u':', 1)
@@ -220,10 +235,8 @@ def extract_path_info(environ_or_baseurl, path_or_url, charset='utf-8',
         environ_or_baseurl = get_current_url(environ_or_baseurl,
                                              root_only=True)
     base_iri = _as_iri(environ_or_baseurl)
-    base_scheme, base_netloc, base_path, = \
-        urlparse.urlsplit(base_iri)[:3]
-    cur_scheme, cur_netloc, cur_path, = \
-        urlparse.urlsplit(urlparse.urljoin(base_iri, path))[:3]
+    base_scheme, base_netloc, base_path = urlsplit(base_iri)[:3]
+    cur_scheme, cur_netloc, cur_path = urlsplit(urljoin(base_iri, path))[:3]
 
     # normalize the network location
     base_netloc = _normalize_netloc(base_scheme, base_netloc)
@@ -313,10 +326,10 @@ class SharedDataMiddleware(object):
         self.exports = {}
         self.cache = cache
         self.cache_timeout = cache_timeout
-        for key, value in exports.iteritems():
+        for key, value in exports.items():
             if isinstance(value, tuple):
                 loader = self.get_package_loader(*value)
-            elif isinstance(value, basestring):
+            elif isinstance(value, string_types):
                 if os.path.isfile(value):
                     loader = self.get_file_loader(value)
                 else:
@@ -385,7 +398,7 @@ class SharedDataMiddleware(object):
         return 'wzsdm-%d-%s-%s' % (
             mktime(mtime.timetuple()),
             file_size,
-            adler32(real_filename) & 0xffffffff
+            adler32(real_filename.encode('utf-8')) & 0xffffffff
         )
 
     def __call__(self, environ, start_response):
@@ -397,7 +410,7 @@ class SharedDataMiddleware(object):
         path = '/'.join([''] + [x for x in cleaned_path.split('/')
                                 if x and x != '..'])
         file_loader = None
-        for search_path, loader in self.exports.iteritems():
+        for search_path, loader in self.exports.items():
             if search_path == path:
                 real_filename, file_loader = loader(None)
                 if file_loader is not None:
@@ -495,10 +508,13 @@ class ClosingIterator(object):
 
     def __init__(self, iterable, callbacks=None):
         iterator = iter(iterable)
-        self._next = iterator.next
+        try:
+            self._next = iterator.__next__
+        except AttributeError:  # Python < 3
+            self._next = iterator.next
         if callbacks is None:
             callbacks = []
-        elif callable(callbacks):
+        elif isinstance(callbacks, collections.Callable):
             callbacks = [callbacks]
         else:
             callbacks = list(callbacks)
@@ -510,7 +526,11 @@ class ClosingIterator(object):
     def __iter__(self):
         return self
 
+    def __next__(self):
+        return self._next()
+
     def next(self):
+        # Python < 3
         return self._next()
 
     def close(self):
@@ -566,11 +586,16 @@ class FileWrapper(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         data = self.file.read(self.buffer_size)
         if data:
             return data
+        self.close()
         raise StopIteration()
+
+    def next(self):
+        # Python < 3
+        return self.__next__()
 
 
 def make_limited_stream(stream, limit):
@@ -586,7 +611,11 @@ def make_chunk_iter_func(stream, limit, buffer_size):
     """Helper for the line and chunk iter functions."""
     if hasattr(stream, 'read'):
         return partial(make_limited_stream(stream, limit).read, buffer_size)
-    return iter(chain(stream, repeat(''))).next
+    iterable = iter(chain(stream, repeat('')))
+    try:
+        return iterable.__next__
+    except AttributeError:  # Python < 3
+        return iterable.next
 
 
 def make_line_iter(stream, limit=None, buffer_size=10 * 1024):
@@ -624,20 +653,20 @@ def make_line_iter(stream, limit=None, buffer_size=10 * 1024):
             new_buf = []
             for item in chain(buffer, new_data.splitlines(True)):
                 new_buf.append(item)
-                if item and item[-1:] in '\r\n':
-                    yield ''.join(new_buf)
+                if item and item[-1:] in b'\r\n':
+                    yield b''.join(new_buf)
                     new_buf = []
             buffer = new_buf
         if buffer:
-            yield ''.join(buffer)
+            yield b''.join(buffer)
 
     # This hackery is necessary to merge 'foo\r' and '\n' into one item
     # of 'foo\r\n' if we were unlucky and we hit a chunk boundary.
-    previous = ''
+    previous = b''
     for item in _iter_basic_lines():
-        if item == '\n' and previous[-1:] == '\r':
-            previous += '\n'
-            item = ''
+        if item == b'\n' and previous[-1:] == b'\r':
+            previous += b'\n'
+            item = b''
         if previous:
             yield previous
         previous = item
@@ -664,7 +693,9 @@ def make_chunk_iter(stream, separator, limit=None, buffer_size=10 * 1024):
     :param buffer_size: The optional buffer size.
     """
     _read = make_chunk_iter_func(stream, limit, buffer_size)
-    _split = re.compile(r'(%s)' % re.escape(separator)).split
+    if isinstance(separator, text_type):
+        separator = separator.encode('latin1')
+    _split = re.compile(b'(' + re.escape(separator) + b')').split
     buffer = []
     while 1:
         new_data = _read()
@@ -674,13 +705,13 @@ def make_chunk_iter(stream, separator, limit=None, buffer_size=10 * 1024):
         new_buf = []
         for item in chain(buffer, chunks):
             if item == separator:
-                yield ''.join(new_buf)
+                yield b''.join(new_buf)
                 new_buf = []
             else:
                 new_buf.append(item)
         buffer = new_buf
     if buffer:
-        yield ''.join(buffer)
+        yield b''.join(buffer)
 
 
 class LimitedStream(object):
@@ -754,7 +785,7 @@ class LimitedStream(object):
         function.
         """
         if self.silent:
-            return ''
+            return b''
         from werkzeug.exceptions import BadRequest
         raise BadRequest('input stream exhausted')
 
@@ -847,8 +878,12 @@ class LimitedStream(object):
         """
         return self._pos
 
-    def next(self):
+    def __next__(self):
         line = self.readline()
         if line is None:
             raise StopIteration()
         return line
+
+    def next(self):
+        # Python < 3
+        return self.__next__()

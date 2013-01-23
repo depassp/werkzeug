@@ -13,6 +13,8 @@ import codecs
 import mimetypes
 from itertools import repeat
 
+from six import PY3, binary_type, integer_types, string_types, text_type
+
 from werkzeug._internal import _proxy_repr, _missing, _empty_stream
 
 
@@ -31,7 +33,7 @@ def iter_multi_items(mapping):
         for item in mapping.iteritems(multi=True):
             yield item
     elif isinstance(mapping, dict):
-        for key, value in mapping.iteritems():
+        for key, value in mapping.items():
             if isinstance(value, (tuple, list)):
                 for value in value:
                     yield key, value
@@ -120,14 +122,14 @@ class ImmutableDictMixin(object):
     @classmethod
     def fromkeys(cls, keys, value=None):
         instance = super(cls, cls).__new__(cls)
-        instance.__init__(zip(keys, repeat(value)))
+        instance.__init__(list(zip(keys, repeat(value))))
         return instance
 
     def __reduce_ex__(self, protocol):
         return type(self), (dict(self),)
 
     def _iter_hashitems(self):
-        return self.iteritems()
+        return iter(list(self.items()))
 
     def __hash__(self):
         if self._hash_cache is not None:
@@ -318,7 +320,7 @@ class MultiDict(TypeConversionDict):
             dict.__init__(self, ((k, l[:]) for k, l in mapping.iterlists()))
         elif isinstance(mapping, dict):
             tmp = {}
-            for key, value in mapping.iteritems():
+            for key, value in mapping.items():
                 if isinstance(value, (tuple, list)):
                     value = list(value)
                 else:
@@ -339,7 +341,7 @@ class MultiDict(TypeConversionDict):
         dict.update(self, value)
 
     def __iter__(self):
-        return self.iterkeys()
+        return iter(list(self.keys()))
 
     def __getitem__(self, key):
         """Return the first data value for this key;
@@ -477,7 +479,7 @@ class MultiDict(TypeConversionDict):
 
         :return: a :class:`list`.
         """
-        return [self[key] for key in self.iterkeys()]
+        return [self[key] for key in self.keys()]
 
     def listvalues(self):
         """Return a list of all values associated with a key.  Zipping
@@ -491,9 +493,14 @@ class MultiDict(TypeConversionDict):
         """
         return list(self.iterlistvalues())
 
+    def iterkeys(self):
+        # Python >= 3
+        for key in dict.keys(self):
+            yield key
+
     def iteritems(self, multi=False):
         """Like :meth:`items` but returns an iterator."""
-        for key, values in dict.iteritems(self):
+        for key, values in dict.items(self):
             if multi:
                 for value in values:
                     yield key, value
@@ -502,17 +509,17 @@ class MultiDict(TypeConversionDict):
 
     def iterlists(self):
         """Like :meth:`items` but returns an iterator."""
-        for key, values in dict.iteritems(self):
+        for key, values in dict.items(self):
             yield key, list(values)
 
     def itervalues(self):
         """Like :meth:`values` but returns an iterator."""
-        for values in dict.itervalues(self):
+        for values in dict.values(self):
             yield values[0]
 
     def iterlistvalues(self):
         """Like :meth:`listvalues` but returns an iterator."""
-        return dict.itervalues(self)
+        return dict.values(self)
 
     def copy(self):
         """Return a shallow copy of this object."""
@@ -553,7 +560,7 @@ class MultiDict(TypeConversionDict):
         """
         try:
             return dict.pop(self, key)[0]
-        except KeyError, e:
+        except KeyError as e:
             if default is not _missing:
                 return default
             raise BadRequestKeyError(str(e))
@@ -563,7 +570,7 @@ class MultiDict(TypeConversionDict):
         try:
             item = dict.popitem(self)
             return (item[0], item[1][0])
-        except KeyError, e:
+        except KeyError as e:
             raise BadRequestKeyError(str(e))
 
     def poplist(self, key):
@@ -580,7 +587,7 @@ class MultiDict(TypeConversionDict):
         """Pop a ``(key, list)`` tuple from the dict."""
         try:
             return dict.popitem(self)
-        except KeyError, e:
+        except KeyError as e:
             raise BadRequestKeyError(str(e))
 
     def __copy__(self):
@@ -651,13 +658,13 @@ class OrderedMultiDict(MultiDict):
             iter2 = other.iteritems(multi=True)
             try:
                 for k1, v1 in iter1:
-                    k2, v2 = iter2.next()
+                    k2, v2 = next(iter2)
                     if k1 != k2 or v1 != v2:
                         return False
             except StopIteration:
                 return False
             try:
-                iter2.next()
+                next(iter2)
             except StopIteration:
                 return True
             return False
@@ -767,7 +774,7 @@ class OrderedMultiDict(MultiDict):
     def pop(self, key, default=_missing):
         try:
             buckets = dict.pop(self, key)
-        except KeyError, e:
+        except KeyError as e:
             if default is not _missing:
                 return default
             raise BadRequestKeyError(str(e))
@@ -778,7 +785,7 @@ class OrderedMultiDict(MultiDict):
     def popitem(self):
         try:
             key, buckets = dict.popitem(self)
-        except KeyError, e:
+        except KeyError as e:
             raise BadRequestKeyError(str(e))
         for bucket in buckets:
             bucket.unlink(self)
@@ -787,7 +794,7 @@ class OrderedMultiDict(MultiDict):
     def popitemlist(self):
         try:
             key, buckets = dict.popitem(self)
-        except KeyError, e:
+        except KeyError as e:
             raise BadRequestKeyError(str(e))
         for bucket in buckets:
             bucket.unlink(self)
@@ -853,7 +860,7 @@ class Headers(object):
 
     def __getitem__(self, key, _get_mode=False):
         if not _get_mode:
-            if isinstance(key, (int, long)):
+            if isinstance(key, integer_types):
                 return self._list[key]
             elif isinstance(key, slice):
                 return self.__class__(self._list[key])
@@ -968,7 +975,7 @@ class Headers(object):
         values.
         """
         if isinstance(iterable, dict):
-            for key, value in iterable.iteritems():
+            for key, value in iterable.items():
                 if isinstance(value, (tuple, list)):
                     for v in value:
                         self.add(key, v)
@@ -979,7 +986,7 @@ class Headers(object):
                 self.add(key, value)
 
     def __delitem__(self, key, _index_operation=True):
-        if _index_operation and isinstance(key, (int, long, slice)):
+        if _index_operation and isinstance(key, integer_types + (slice, )):
             del self._list[key]
             return
         key = key.lower()
@@ -1007,7 +1014,7 @@ class Headers(object):
         """
         if key is None:
             return self._list.pop()
-        if isinstance(key, (int, long)):
+        if isinstance(key, integer_types):
             return self._list.pop(key)
         try:
             rv = self[key]
@@ -1061,7 +1068,7 @@ class Headers(object):
         self._list.append((_key, _value))
 
     def _validate_value(self, value):
-        if isinstance(value, basestring) and ('\n' in value or '\r' in value):
+        if isinstance(value, string_types) and ('\n' in value or '\r' in value):
             raise ValueError('Detected newline in header value.  This is '
                 'a potential security problem')
 
@@ -1125,20 +1132,25 @@ class Headers(object):
 
     def __setitem__(self, key, value):
         """Like :meth:`set` but also supports index/slice based setting."""
-        if isinstance(key, (slice, int, long)):
+        if isinstance(key, integer_types + (slice, )):
             self._validate_value(value)
             self._list[key] = value
         else:
             self.set(key, value)
 
     def to_list(self, charset='iso-8859-1'):
-        """Convert the headers into a list and converts the unicode header
-        items to the specified charset.
+        """Convert the headers into a list and converts the header items to
+        `str` (unicode string in Python 3, byte string in Python 2) using the
+        specified charset.
 
         :return: list
         """
-        return [(k, isinstance(v, unicode) and v.encode(charset) or str(v))
-                for k, v in self]
+        if PY3:
+            return [(k, v.decode(charset) if isinstance(v, binary_type)
+                else str(v)) for k, v in self]
+        else:
+            return [(k, v.encode(charset) if isinstance(v, text_type)
+                else str(v)) for k, v in self]
 
     def copy(self):
         return self.__class__(self._list)
@@ -1234,7 +1246,7 @@ class EnvironHeaders(ImmutableHeadersMixin, Headers):
         return len(list(iter(self)))
 
     def __iter__(self):
-        for key, value in self.environ.iteritems():
+        for key, value in self.environ.items():
             if key.startswith('HTTP_') and key not in \
                ('HTTP_CONTENT_TYPE', 'HTTP_CONTENT_LENGTH'):
                 yield key[5:].replace('_', '-').title(), value
@@ -1333,7 +1345,7 @@ class CombinedMultiDict(ImmutableMultiDictMixin, MultiDict):
         for d in self.dicts:
             for key, values in d.iterlists():
                 rv.setdefault(key, []).extend(values)
-        return rv.iteritems()
+        return iter(list(rv.items()))
 
     def lists(self):
         return list(self.iterlists())
@@ -1345,7 +1357,7 @@ class CombinedMultiDict(ImmutableMultiDictMixin, MultiDict):
         return list(self.iterlistvalues())
 
     def iterkeys(self):
-        return iter(self.keys())
+        return iter(list(self.keys()))
 
     __iter__ = iterkeys
 
@@ -1369,7 +1381,7 @@ class CombinedMultiDict(ImmutableMultiDictMixin, MultiDict):
         return rv
 
     def __len__(self):
-        return len(self.keys())
+        return len(list(self.keys()))
 
     def __contains__(self, key):
         for d in self.dicts:
@@ -1403,7 +1415,7 @@ class FileMultiDict(MultiDict):
         if isinstance(file, FileStorage):
             value = file
         else:
-            if isinstance(file, basestring):
+            if isinstance(file, string_types):
                 if filename is None:
                     filename = file
                 file = open(file, 'rb')
@@ -1523,7 +1535,7 @@ class Accept(ImmutableList):
         to get the quality for the item.  If the item is not in the list, the
         returned quality is ``0``.
         """
-        if isinstance(key, basestring):
+        if isinstance(key, string_types):
             return self.quality(key)
         return list.__getitem__(self, key)
 
@@ -1560,7 +1572,7 @@ class Accept(ImmutableList):
            This used to raise :exc:`IndexError`, which was inconsistent
            with the list API.
         """
-        if isinstance(key, basestring):
+        if isinstance(key, string_types):
             for idx, (item, quality) in enumerate(self):
                 if self._value_matches(key, item):
                     return idx
@@ -2002,8 +2014,12 @@ class HeaderSet(object):
     def __iter__(self):
         return iter(self._headers)
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self._set)
+
+    def __nonzero__(self):
+        # Python < 3
+        return self.__bool__()
 
     def __str__(self):
         return self.to_header()
@@ -2078,8 +2094,12 @@ class ETags(object):
                 return True
         return etag in self._strong
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self.star_tag or self._strong or self._weak)
+
+    def __nonzero__(self):
+        # Python < 3
+        return self.__bool__()
 
     def __str__(self):
         return self.to_header()
@@ -2243,8 +2263,12 @@ class ContentRange(object):
             length
         )
 
-    def __nonzero__(self):
+    def __bool__(self):
         return self.units is not None
+
+    def __nonzero__(self):
+        # Python < 3
+        return self.__bool__()
 
     def __str__(self):
         return self.to_header()
@@ -2359,7 +2383,7 @@ class WWWAuthenticate(UpdateDictMixin, dict):
         return '%s %s' % (auth_type.title(), ', '.join([
             '%s=%s' % (key, quote_header_value(value,
                        allow_token=key not in self._require_quoting))
-            for key, value in d.iteritems()
+            for key, value in d.items()
         ]))
 
     def __str__(self):
@@ -2533,8 +2557,8 @@ class FileStorage(object):
         """
         from shutil import copyfileobj
         close_dst = False
-        if isinstance(dst, basestring):
-            dst = file(dst, 'wb')
+        if isinstance(dst, string_types):
+            dst = open(dst, 'wb')
             close_dst = True
         try:
             copyfileobj(self.stream, dst, buffer_size)
@@ -2549,8 +2573,12 @@ class FileStorage(object):
         except Exception:
             pass
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self.filename)
+
+    def __nonzero__(self):
+        # Python < 3
+        return self.__bool__()
 
     def __getattr__(self, name):
         return getattr(self.stream, name)

@@ -35,25 +35,30 @@
     :copyright: (c) 2011 by the Werkzeug Team, see AUTHORS for more details.
     :license: BSD, see LICENSE for more details.
 """
-from __future__ import with_statement
-
 import os
 import socket
 import sys
 import time
-import thread
+try:
+    from _thread import start_new_thread
+except ImportError:  # Python < 3
+    from thread import start_new_thread
 import signal
 import subprocess
-from urllib import unquote
-from SocketServer import ThreadingMixIn, ForkingMixIn
-from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+try:
+    from urllib.parse import unquote
+except ImportError:  # Python < 3
+    from urllib import unquote
+
+from six import MAXSIZE, PY3, binary_type, text_type, reraise
+from six.moves import BaseHTTPServer, socketserver
 
 import werkzeug
 from werkzeug._internal import _log
 from werkzeug.exceptions import InternalServerError
 
 
-class WSGIRequestHandler(BaseHTTPRequestHandler, object):
+class WSGIRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler, object):
     """A request handler that implements WSGI dispatching."""
 
     @property
@@ -94,6 +99,9 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
             'SERVER_PORT':          str(self.server.server_address[1]),
             'SERVER_PROTOCOL':      self.request_version
         }
+        if PY3:
+            # NOTE: PEP 3333 for Python 3
+            environ['PATH_INFO'] = unquote(path_info, encoding='latin1')
 
         for key, value in self.headers.items():
             key = 'HTTP_' + key.upper().replace('-', '_')
@@ -128,7 +136,7 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
                     self.send_header('Date', self.date_time_string())
                 self.end_headers()
 
-            assert type(data) is str, 'applications must write bytes'
+            assert isinstance(data, binary_type), 'applications must write bytes'
             self.wfile.write(data)
             self.wfile.flush()
 
@@ -136,7 +144,7 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
             if exc_info:
                 try:
                     if headers_sent:
-                        raise exc_info[0], exc_info[1], exc_info[2]
+                        reraise(exc_info[0], exc_info[1], exc_info[2])
                 finally:
                     exc_info = None
             elif headers_set:
@@ -151,7 +159,7 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
                     write(data)
                 # make sure the headers are sent
                 if not headers_sent:
-                    write('')
+                    write(b'')
             finally:
                 if hasattr(application_iter, 'close'):
                     application_iter.close()
@@ -159,7 +167,7 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
 
         try:
             execute(app)
-        except (socket.error, socket.timeout), e:
+        except (socket.error, socket.timeout) as e:
             self.connection_dropped(e, environ)
         except Exception:
             if self.server.passthrough_errors:
@@ -181,8 +189,8 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
         """Handles a request ignoring dropped connections."""
         rv = None
         try:
-            rv = BaseHTTPRequestHandler.handle(self)
-        except (socket.error, socket.timeout), e:
+            rv = BaseHTTPServer.BaseHTTPRequestHandler.handle(self)
+        except (socket.error, socket.timeout) as e:
             self.connection_dropped(e)
         except Exception:
             if self.server.ssl_context is None or not is_ssl_error():
@@ -224,11 +232,12 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
         if message is None:
             message = code in self.responses and self.responses[code][0] or ''
         if self.request_version != 'HTTP/0.9':
-            self.wfile.write("%s %d %s\r\n" %
-                             (self.protocol_version, code, message))
+            self.wfile.write(("%s %d %s\r\n" %
+                              (self.protocol_version, code, message)
+                             ).encode('ascii'))
 
     def version_string(self):
-        return BaseHTTPRequestHandler.version_string(self).strip()
+        return BaseHTTPServer.BaseHTTPRequestHandler.version_string(self).strip()
 
     def address_string(self):
         return self.client_address[0]
@@ -261,7 +270,7 @@ def generate_adhoc_ssl_pair(cn=None):
         cn = '*'
 
     cert = crypto.X509()
-    cert.set_serial_number(int(random() * sys.maxint))
+    cert.set_serial_number(int(random() * MAXSIZE))
     cert.gmtime_adj_notBefore(0)
     cert.gmtime_adj_notAfter(60 * 60 * 24 * 365)
 
@@ -380,7 +389,7 @@ def select_ip_version(host, port):
     return socket.AF_INET
 
 
-class BaseWSGIServer(HTTPServer, object):
+class BaseWSGIServer(BaseHTTPServer.HTTPServer, object):
     """Simple single-threaded, single-process WSGI server."""
     multithread = False
     multiprocess = False
@@ -391,7 +400,7 @@ class BaseWSGIServer(HTTPServer, object):
         if handler is None:
             handler = WSGIRequestHandler
         self.address_family = select_ip_version(host, port)
-        HTTPServer.__init__(self, (host, int(port)), handler)
+        BaseHTTPServer.HTTPServer.__init__(self, (host, int(port)), handler)
         self.app = app
         self.passthrough_errors = passthrough_errors
         self.shutdown_signal = False
@@ -417,7 +426,7 @@ class BaseWSGIServer(HTTPServer, object):
     def serve_forever(self):
         self.shutdown_signal = False
         try:
-            HTTPServer.serve_forever(self)
+            BaseHTTPServer.HTTPServer.serve_forever(self)
         except KeyboardInterrupt:
             pass
 
@@ -425,7 +434,7 @@ class BaseWSGIServer(HTTPServer, object):
         if self.passthrough_errors:
             raise
         else:
-            return HTTPServer.handle_error(self, request, client_address)
+            return BaseHTTPServer.HTTPServer.handle_error(self, request, client_address)
 
     def get_request(self):
         con, info = self.socket.accept()
@@ -434,12 +443,12 @@ class BaseWSGIServer(HTTPServer, object):
         return con, info
 
 
-class ThreadedWSGIServer(ThreadingMixIn, BaseWSGIServer):
+class ThreadedWSGIServer(socketserver.ThreadingMixIn, BaseWSGIServer):
     """A WSGI server that does threading."""
     multithread = True
 
 
-class ForkingWSGIServer(ForkingMixIn, BaseWSGIServer):
+class ForkingWSGIServer(socketserver.ForkingMixIn, BaseWSGIServer):
     """A WSGI server that does forking."""
     multiprocess = True
 
@@ -576,8 +585,8 @@ def restart_with_reloader():
         # environment and subprocess.call does not like this, encode them
         # to latin1 and continue.
         if os.name == 'nt':
-            for key, value in new_environ.iteritems():
-                if isinstance(value, unicode):
+            for key, value in list(new_environ.items()):
+                if isinstance(value, text_type):
                     new_environ[key] = value.encode('iso-8859-1')
 
         exit_code = subprocess.call(args, env=new_environ)
@@ -590,7 +599,7 @@ def run_with_reloader(main_func, extra_files=None, interval=1):
     import signal
     signal.signal(signal.SIGTERM, lambda *args: sys.exit(0))
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
-        thread.start_new_thread(main_func, ())
+        start_new_thread(main_func, ())
         try:
             reloader_loop(extra_files, interval)
         except KeyboardInterrupt:

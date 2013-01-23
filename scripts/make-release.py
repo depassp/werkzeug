@@ -16,6 +16,8 @@ import re
 from datetime import datetime, date
 from subprocess import Popen, PIPE
 
+from six import print_
+
 _date_clean_re = re.compile(r'(\d+)(st|nd|rd|th)')
 
 
@@ -46,7 +48,7 @@ def parse_changelog():
 
 def bump_version(version):
     try:
-        parts = map(int, version.split('.'))
+        parts = [int(_) for _ in version.split('.')]
     except ValueError:
         fail('Current version is not numeric')
     parts[-1] += 1
@@ -90,12 +92,12 @@ def build_and_upload():
 
 
 def fail(message, *args):
-    print >> sys.stderr, 'Error:', message % args
+    print_('Error:', message % args, file=sys.stderr)
     sys.exit(1)
 
 
 def info(message, *args):
-    print >> sys.stderr, message % args
+    print_(message % args, file=sys.stderr)
 
 
 def get_git_tags():

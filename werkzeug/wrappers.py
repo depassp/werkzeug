@@ -20,8 +20,13 @@
     :copyright: (c) 2011 by the Werkzeug Team, see AUTHORS for more details.
     :license: BSD, see LICENSE for more details.
 """
-import urlparse
+try:
+    from urllib.parse import urljoin
+except:
+    from urlparse import urljoin  # Python < 3
 from datetime import datetime, timedelta
+
+from six import PY3, binary_type, integer_types, string_types, text_type
 
 from werkzeug.http import HTTP_STATUS_CODES, \
      parse_accept_header, parse_cache_control_header, parse_etags, \
@@ -59,7 +64,7 @@ def _warn_if_string(iterable):
     """Helper for the response objects to check if the iterable returned
     to the WSGI server is not a string.
     """
-    if isinstance(iterable, basestring):
+    if isinstance(iterable, string_types):
         from warnings import warn
         warn(Warning('response iterable was set to a string.  This appears '
                      'to work but means that the server will send the '
@@ -431,6 +436,8 @@ class BaseRequest(object):
         even if the URL root is accessed.
         """
         path = '/' + (self.environ.get('PATH_INFO') or '').lstrip('/')
+        if PY3:
+            return path
         return _decode_unicode(path, self.url_charset, self.encoding_errors)
 
     @cached_property
@@ -442,6 +449,8 @@ class BaseRequest(object):
     def script_root(self):
         """The root path of the script without the trailing slash."""
         path = (self.environ.get('SCRIPT_NAME') or '').rstrip('/')
+        if PY3:
+            return path
         return _decode_unicode(path, self.url_charset, self.encoding_errors)
 
     @cached_property
@@ -641,7 +650,7 @@ class BaseResponse(object):
             self.headers['Content-Type'] = content_type
         if status is None:
             status = self.default_status
-        if isinstance(status, (int, long)):
+        if isinstance(status, integer_types):
             self.status_code = status
         else:
             self.status = status
@@ -653,7 +662,7 @@ class BaseResponse(object):
         # the charset attribute, the data is set in the correct charset.
         if response is None:
             self.response = []
-        elif isinstance(response, basestring):
+        elif isinstance(response, (text_type, binary_type)):
             self.data = response
         else:
             self.response = response
@@ -765,11 +774,11 @@ class BaseResponse(object):
         :attr:`implicit_sequence_conversion` to `False`.
         """
         self._ensure_sequence()
-        return ''.join(self.iter_encoded())
+        return b''.join(self.iter_encoded())
     def _set_data(self, value):
         # if an unicode string is set, it's encoded directly so that we
         # can set the content length
-        if isinstance(value, unicode):
+        if isinstance(value, text_type):
             value = value.encode(self.charset)
         self.response = [value]
         if self.automatically_set_content_length:
@@ -832,10 +841,12 @@ class BaseResponse(object):
         if __debug__:
             _warn_if_string(self.response)
         for item in self.response:
-            if isinstance(item, unicode):
+            if isinstance(item, text_type):
                 yield item.encode(charset)
+            elif PY3 and isinstance(item, int):
+                yield bytes([item])
             else:
-                yield str(item)
+                yield item
 
     def set_cookie(self, key, value='', max_age=None, expires=None,
                    path='/', domain=None, secure=None, httponly=False):
@@ -980,10 +991,10 @@ class BaseResponse(object):
         # make sure the location header is an absolute URL
         if location is not None:
             old_location = location
-            if isinstance(location, unicode):
+            if isinstance(location, text_type):
                 location = iri_to_uri(location)
             if self.autocorrect_location_header:
-                location = urlparse.urljoin(
+                location = urljoin(
                     get_current_url(environ, root_only=True),
                     location
                 )
@@ -992,7 +1003,7 @@ class BaseResponse(object):
 
         # make sure the content location is a URL
         if content_location is not None and \
-           isinstance(content_location, unicode):
+           isinstance(content_location, text_type):
             headers['Content-Location'] = iri_to_uri(content_location)
 
         # remove entity headers and set content length to zero if needed.
@@ -1012,8 +1023,8 @@ class BaseResponse(object):
         if self.automatically_set_content_length and \
            self.is_sequence and content_length is None and status != 304:
             try:
-                content_length = sum(len(str(x)) for x in self.response)
-            except UnicodeError:
+                content_length = sum(len(binary_type(x)) for x in self.response)
+            except (TypeError, UnicodeError):
                 # aha, something non-bytestringy in there, too bad, we
                 # can't safely figure out the length of the response.
                 pass
@@ -1061,8 +1072,8 @@ class BaseResponse(object):
         """
         # XXX: code for backwards compatibility with custom fix_headers
         # methods.
-        if self.fix_headers.func_code is not \
-           BaseResponse.fix_headers.func_code:
+        if self.fix_headers.__code__ is not \
+           BaseResponse.fix_headers.__code__:
             if __debug__:
                 from warnings import warn
                 warn(DeprecationWarning('fix_headers changed behavior in 0.6 '
@@ -1329,7 +1340,7 @@ class ETagResponseMixin(object):
     def _set_content_range(self, value):
         if not value:
             del self.headers['content-range']
-        elif isinstance(value, basestring):
+        elif isinstance(value, string_types):
             self.headers['Content-Range'] = value
         else:
             self.headers['Content-Range'] = value.to_header()
@@ -1579,7 +1590,7 @@ class CommonResponseDescriptorsMixin(object):
         def fset(self, value):
             if not value:
                 del self.headers[name]
-            elif isinstance(value, basestring):
+            elif isinstance(value, string_types):
                 self.headers[name] = value
             else:
                 self.headers[name] = dump_header(value)

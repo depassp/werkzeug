@@ -10,7 +10,10 @@
 """
 import os
 import redis
-import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:  # Python < 3
+    from urlparse import urlparse
 from werkzeug.wrappers import Request, Response
 from werkzeug.routing import Map, Rule
 from werkzeug.exceptions import HTTPException, NotFound
@@ -32,12 +35,12 @@ def base36_encode(number):
 
 
 def is_valid_url(url):
-    parts = urlparse.urlparse(url)
+    parts = urlparse(url)
     return parts.scheme in ('http', 'https')
 
 
 def get_hostname(url):
-    return urlparse.urlparse(url).netloc
+    return urlparse(url).netloc
 
 
 class Shortly(object):
@@ -109,9 +112,9 @@ class Shortly(object):
         try:
             endpoint, values = adapter.match()
             return getattr(self, 'on_' + endpoint)(request, **values)
-        except NotFound, e:
+        except NotFound as e:
             return self.error_404()
-        except HTTPException, e:
+        except HTTPException as e:
             return e
 
     def wsgi_app(self, environ, start_response):

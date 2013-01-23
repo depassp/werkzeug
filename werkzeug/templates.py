@@ -8,12 +8,12 @@ r"""
     :copyright: (c) 2011 by the Werkzeug Team, see AUTHORS for more details.
     :license: BSD License.
 """
-import sys
 import re
-import __builtin__ as builtins
 from compiler import ast, parse
 from compiler.pycodegen import ModuleCodeGenerator
 from tokenize import PseudoToken
+from six import MAXSIZE, string_types, text_type, exec_
+from six.moves import builtins
 from werkzeug import urls, utils
 from werkzeug._internal import _decode_unicode
 from werkzeug.datastructures import MultiDict
@@ -112,11 +112,11 @@ class Parser(object):
         raise TemplateSyntaxError(msg, self.filename, self.lineno)
 
     def parse_python(self, expr, type='exec'):
-        if isinstance(expr, unicode):
+        if isinstance(expr, text_type):
             expr = '\xef\xbb\xbf' + expr.encode('utf-8')
         try:
             node = parse(expr, type)
-        except SyntaxError, e:
+        except SyntaxError as e:
             raise TemplateSyntaxError(str(e), self.filename,
                                       self.lineno + e.lineno - 1)
         nodes = [node]
@@ -181,7 +181,7 @@ class Parser(object):
         return cond
 
     def parse_code(self, lines):
-        margin = sys.maxint
+        margin = MAXSIZE
         for line in lines[1:]:
             content = len(line.lstrip())
             if content:
@@ -189,8 +189,8 @@ class Parser(object):
                 margin = min(margin, indent)
         if lines:
             lines[0] = lines[0].lstrip()
-        if margin < sys.maxint:
-            for i in xrange(1, len(lines)):
+        if margin < MAXSIZE:
+            for i in range(1, len(lines)):
                 lines[i] = lines[i][margin:]
         while lines and not lines[-1]:
             lines.pop()
@@ -286,7 +286,7 @@ class Context(object):
     def to_unicode(self, value):
         if isinstance(value, str):
             return _decode_unicode(value, self.charset, self.errors)
-        return unicode(value)
+        return text_type(value)
 
     def get_value(self, as_unicode=True):
         rv = u''.join(self._buffer)
@@ -337,7 +337,7 @@ class Template(object):
                  errors='strict', unicode_mode=True):
         if isinstance(source, str):
             source = _decode_unicode(source, charset, errors)
-        if isinstance(filename, unicode):
+        if isinstance(filename, text_type):
             filename = filename.encode('utf-8')
         node = Parser(tokenize(u'\n'.join(source.splitlines()),
                                filename), filename).parse()
@@ -363,7 +363,7 @@ class Template(object):
         """
         close = False
         f = file
-        if isinstance(file, basestring):
+        if isinstance(file, string_types):
             f = open(file, 'r')
             close = True
         try:
@@ -391,7 +391,7 @@ class Template(object):
         if kwargs:
             ns.update(kwargs)
         context = Context(ns, self.charset, self.errors)
-        exec self.code in context.runtime, context
+        exec_(self.code, context.runtime, context)
         return context.get_value(self.unicode_mode)
 
     def substitute(self, *args, **kwargs):

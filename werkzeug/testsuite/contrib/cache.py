@@ -44,7 +44,7 @@ class SimpleCacheTestCase(WerkzeugTestCase):
         c = cache.SimpleCache()
         c.set_many({0: 0, 1: 1, 2: 4})
         assert c.get(2) == 4
-        c.set_many((i, i*i) for i in xrange(3))
+        c.set_many((i, i*i) for i in range(3))
         assert c.get(2) == 4
 
 
@@ -95,8 +95,8 @@ class RedisCacheTestCase(WerkzeugTestCase):
 
     def test_compat(self):
         c = self.make_cache()
-        c._client.set(c.key_prefix + 'foo', 'Awesome')
-        self.assert_equal(c.get('foo'), 'Awesome')
+        c._client.set(c.key_prefix + 'foo', b'Awesome')
+        self.assert_equal(c.get('foo'), b'Awesome')
         c._client.set(c.key_prefix + 'foo', '42')
         self.assert_equal(c.get('foo'), 42)
 

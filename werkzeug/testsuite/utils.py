@@ -8,11 +8,10 @@
     :copyright: (c) 2011 by Armin Ronacher.
     :license: BSD, see LICENSE for more details.
 """
-
-from __future__ import with_statement
-
 import unittest
 from datetime import datetime
+
+from six import text_type
 
 from werkzeug.testsuite import WerkzeugTestCase
 
@@ -27,12 +26,12 @@ class GeneralUtilityTestCase(WerkzeugTestCase):
 
     def test_redirect(self):
         resp = utils.redirect(u'/füübär')
-        assert '/f%C3%BC%C3%BCb%C3%A4r' in resp.data
+        assert b'/f%C3%BC%C3%BCb%C3%A4r' in resp.data
         assert resp.headers['Location'] == '/f%C3%BC%C3%BCb%C3%A4r'
         assert resp.status_code == 302
 
         resp = utils.redirect(u'http://☃.net/', 307)
-        assert 'http://xn--n3h.net/' in resp.data
+        assert b'http://xn--n3h.net/' in resp.data
         assert resp.headers['Location'] == 'http://xn--n3h.net/'
         assert resp.status_code == 307
 
@@ -43,11 +42,11 @@ class GeneralUtilityTestCase(WerkzeugTestCase):
     def test_redirect_xss(self):
         location = 'http://example.com/?xss="><script>alert(1)</script>'
         resp = utils.redirect(location)
-        assert '<script>alert(1)</script>' not in resp.data
+        assert b'<script>alert(1)</script>' not in resp.data
 
         location = 'http://example.com/?xss="onmouseover="alert(1)'
         resp = utils.redirect(location)
-        assert 'href="http://example.com/?xss="onmouseover="alert(1)"' not in resp.data
+        assert b'href="http://example.com/?xss="onmouseover="alert(1)"' not in resp.data
 
     def test_cached_property(self):
         foo = []
@@ -105,7 +104,7 @@ class GeneralUtilityTestCase(WerkzeugTestCase):
     def test_escape(self):
         class Foo(str):
             def __html__(self):
-                return unicode(self)
+                return text_type(self)
         assert utils.escape(None) == ''
         assert utils.escape(42) == '42'
         assert utils.escape('<>') == '&lt;&gt;'
@@ -126,10 +125,10 @@ class GeneralUtilityTestCase(WerkzeugTestCase):
         app_iter, status, headers = run_wsgi_app(foo, {})
         assert status == '200 OK'
         assert headers == [('Content-Type', 'text/plain')]
-        assert app_iter.next() == '1'
-        assert app_iter.next() == '2'
-        assert app_iter.next() == '3'
-        self.assert_raises(StopIteration, app_iter.next)
+        assert next(app_iter) == '1'
+        assert next(app_iter) == '2'
+        assert next(app_iter) == '3'
+        self.assert_raises(StopIteration, app_iter.__next__)
 
         got_close = []
         class CloseIter(object):
@@ -139,11 +138,14 @@ class GeneralUtilityTestCase(WerkzeugTestCase):
                 return self
             def close(self):
                 got_close.append(None)
-            def next(self):
+            def __next__(self):
                 if self.iterated:
                     raise StopIteration()
                 self.iterated = True
                 return 'bar'
+            def next(self):
+                # Python < 3
+                return self.__next__()
 
         def bar(environ, start_response):
             start_response('200 OK', [('Content-Type', 'text/plain')])
@@ -152,8 +154,8 @@ class GeneralUtilityTestCase(WerkzeugTestCase):
         app_iter, status, headers = run_wsgi_app(bar, {})
         assert status == '200 OK'
         assert headers == [('Content-Type', 'text/plain')]
-        assert app_iter.next() == 'bar'
-        self.assert_raises(StopIteration, app_iter.next)
+        assert next(app_iter) == 'bar'
+        self.assert_raises(StopIteration, app_iter.__next__)
         app_iter.close()
 
         assert run_wsgi_app(bar, {}, True)[0] == ['bar']

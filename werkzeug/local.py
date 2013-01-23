@@ -8,6 +8,8 @@
     :copyright: (c) 2011 by the Werkzeug Team, see AUTHORS for more details.
     :license: BSD, see LICENSE for more details.
 """
+from six import PY3, text_type
+
 from werkzeug.wsgi import ClosingIterator
 from werkzeug._internal import _patch_wrapper
 
@@ -18,9 +20,9 @@ try:
     from greenlet import getcurrent as get_ident
 except ImportError: # pragma: no cover
     try:
-        from thread import get_ident
+        from _thread import get_ident
     except ImportError: # pragma: no cover
-        from dummy_thread import get_ident
+        from _dummy_thread import get_ident
 
 
 def release_local(local):
@@ -54,7 +56,7 @@ class Local(object):
         object.__setattr__(self, '__ident_func__', get_ident)
 
     def __iter__(self):
-        return iter(self.__storage__.items())
+        return iter(list(self.__storage__.items()))
 
     def __call__(self, proxy):
         """Create a proxy for a name."""
@@ -312,15 +314,19 @@ class LocalProxy(object):
             return '<%s unbound>' % self.__class__.__name__
         return repr(obj)
 
-    def __nonzero__(self):
+    def __bool__(self):
         try:
             return bool(self._get_current_object())
         except RuntimeError:
             return False
 
+    def __nonzero__(self):
+        # Python < 3
+        return self.__bool__()
+
     def __unicode__(self):
         try:
-            return unicode(self._get_current_object())
+            return text_type(self._get_current_object())
         except RuntimeError:
             return repr(self)
 
@@ -384,7 +390,7 @@ class LocalProxy(object):
     __invert__ = lambda x: ~(x._get_current_object())
     __complex__ = lambda x: complex(x._get_current_object())
     __int__ = lambda x: int(x._get_current_object())
-    __long__ = lambda x: long(x._get_current_object())
+    __long__ = lambda x: (int if PY3 else long)(x._get_current_object())
     __float__ = lambda x: float(x._get_current_object())
     __oct__ = lambda x: oct(x._get_current_object())
     __hex__ = lambda x: hex(x._get_current_object())

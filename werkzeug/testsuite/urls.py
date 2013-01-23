@@ -8,9 +8,9 @@
     :copyright: (c) 2011 by Armin Ronacher.
     :license: BSD, see LICENSE for more details.
 """
-
 import unittest
-from StringIO import StringIO
+
+from six import PY3, BytesIO, StringIO, text_type
 
 from werkzeug.testsuite import WerkzeugTestCase
 
@@ -47,12 +47,13 @@ class URLsTestCase(WerkzeugTestCase):
         item1 = 'a' * 100000
         item2 = 'b' * 400
         string = 'a=%s&b=%s&c=%s' % (item1, item2, item2)
-        gen = urls.url_decode_stream(StringIO(string), limit=len(string),
-                                     return_iterator=True)
-        self.assert_equal(gen.next(), ('a', item1))
-        self.assert_equal(gen.next(), ('b', item2))
-        self.assert_equal(gen.next(), ('c', item2))
-        self.assert_raises(StopIteration, gen.next)
+        for stream in [StringIO(string), BytesIO(string.encode('ascii'))]:
+            gen = urls.url_decode_stream(stream, limit=len(string),
+                                         return_iterator=True)
+            self.assert_equal(next(gen), ('a', item1))
+            self.assert_equal(next(gen), ('b', item2))
+            self.assert_equal(next(gen), ('c', item2))
+            self.assert_raises(StopIteration, gen.__next__ if PY3 else gen.next)
 
     def test_url_encoding(self):
         assert urls.url_encode({'foo': 'bar 45'}) == 'foo=bar+45'
@@ -79,10 +80,10 @@ class URLsTestCase(WerkzeugTestCase):
         self.assert_equal(out.getvalue(), 'bar=23;blah=H%C3%A4nsel;foo=1')
 
         gen = urls.url_encode_stream(d, sort=True)
-        self.assert_equal(gen.next(), 'bar=23')
-        self.assert_equal(gen.next(), 'blah=H%C3%A4nsel')
-        self.assert_equal(gen.next(), 'foo=1')
-        self.assert_raises(StopIteration, gen.next)
+        self.assert_equal(next(gen), 'bar=23')
+        self.assert_equal(next(gen), 'blah=H%C3%A4nsel')
+        self.assert_equal(next(gen), 'foo=1')
+        self.assert_raises(StopIteration, gen.__next__ if PY3 else gen.next)
 
     def test_url_fixing(self):
         x = urls.url_fix(u'http://de.wikipedia.org/wiki/Elf (Begriffskl\xe4rung)')
@@ -92,8 +93,9 @@ class URLsTestCase(WerkzeugTestCase):
         assert x == 'http://example.com/?foo=%2f%2f'
 
     def test_iri_support(self):
-        self.assert_raises(UnicodeError, urls.uri_to_iri, u'http://föö.com/')
-        self.assert_raises(UnicodeError, urls.iri_to_uri, 'http://föö.com/')
+        if not PY3:
+            self.assert_raises(UnicodeError, urls.uri_to_iri, u'http://föö.com/')
+            self.assert_raises(UnicodeError, urls.iri_to_uri, 'http://föö.com/')
         assert urls.uri_to_iri('http://xn--n3h.net/') == u'http://\u2603.net/'
         assert urls.uri_to_iri('http://%C3%BCser:p%C3%A4ssword@xn--n3h.net/p%C3%A5th') == \
             u'http://\xfcser:p\xe4ssword@\u2603.net/p\xe5th'
@@ -154,7 +156,7 @@ class URLsTestCase(WerkzeugTestCase):
     def test_url_unquote_plus_unicode(self):
         # was broken in 0.6
         assert urls.url_unquote_plus(u'\x6d') == u'\x6d'
-        assert type(urls.url_unquote_plus(u'\x6d')) is unicode
+        assert type(urls.url_unquote_plus(u'\x6d')) is text_type
 
     def test_quoting_of_local_urls(self):
         rv = urls.iri_to_uri(u'/foo\x8f')

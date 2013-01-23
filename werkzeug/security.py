@@ -11,9 +11,10 @@
 import os
 import hmac
 import posixpath
-from itertools import izip
+
 from random import SystemRandom
 
+from six import text_type
 
 SALT_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
@@ -48,8 +49,18 @@ def safe_str_cmp(a, b):
     if len(a) != len(b):
         return False
     rv = 0
-    for x, y in izip(a, b):
+    for x, y in zip(a, b):
         rv |= ord(x) ^ ord(y)
+    return rv == 0
+
+
+def safe_bytes_cmp(a, b):
+    """Same as safe_str_cmp, but for bytes"""
+    if len(a) != len(b):
+        return False
+    rv = 0
+    for x, y in zip(a, b):
+        rv |= x ^ y
     return rv == 0
 
 
@@ -57,7 +68,7 @@ def gen_salt(length):
     """Generate a random string of SALT_CHARS with specified ``length``."""
     if length <= 0:
         raise ValueError('requested salt of length <= 0')
-    return ''.join(_sys_rng.choice(SALT_CHARS) for _ in xrange(length))
+    return ''.join(_sys_rng.choice(SALT_CHARS) for _ in range(length))
 
 
 def _hash_internal(method, salt, password):
@@ -70,14 +81,14 @@ def _hash_internal(method, salt, password):
     if salt:
         if method not in _hash_funcs:
             return None
-        if isinstance(salt, unicode):
+        if isinstance(salt, text_type):
             salt = salt.encode('utf-8')
         h = hmac.new(salt, None, _hash_funcs[method])
     else:
         if method not in _hash_funcs:
             return None
         h = _hash_funcs[method]()
-    if isinstance(password, unicode):
+    if isinstance(password, text_type):
         password = password.encode('utf-8')
     h.update(password)
     return h.hexdigest()

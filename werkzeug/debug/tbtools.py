@@ -15,6 +15,7 @@ import inspect
 import traceback
 import codecs
 from tokenize import TokenError
+from six import exec_, binary_type, string_types, text_type
 from werkzeug.utils import cached_property, escape
 from werkzeug.debug.console import Console
 
@@ -152,7 +153,7 @@ def get_current_traceback(ignore_system_exceptions=False,
     exc_type, exc_value, tb = sys.exc_info()
     if ignore_system_exceptions and exc_type in system_exceptions:
         raise
-    for x in xrange(skip):
+    for x in range(skip):
         if tb.tb_next is None:
             break
         tb = tb.tb_next
@@ -253,19 +254,28 @@ class Traceback(object):
     def exception(self):
         """String representation of the exception."""
         buf = traceback.format_exception_only(self.exc_type, self.exc_value)
-        return ''.join(buf).strip().decode('utf-8', 'replace')
+        buf = ''.join(buf).strip()
+        if isinstance(buf, binary_type):
+            buf = buf.decode('utf-8', 'replace')
+        return buf
     exception = property(exception)
 
     def log(self, logfile=None):
         """Log the ASCII traceback into a file object."""
         if logfile is None:
             logfile = sys.stderr
-        tb = self.plaintext.encode('utf-8', 'replace').rstrip() + '\n'
+        tb = self.plaintext
+        if isinstance(tb, text_type):
+            tb = tb.encode('utf-8', 'replace')
+        tb = tb.rstrip() + '\n'
         logfile.write(tb)
 
     def paste(self, lodgeit_url):
         """Create a paste and return the paste id."""
-        from xmlrpclib import ServerProxy
+        try:
+            from xmlrpc.client import ServerProxy
+        except ImportError:  # Python < 3
+            from xmlrpclib import ServerProxy
         srv = ServerProxy('%sxmlrpc/' % lodgeit_url)
         return srv.pastes.newPaste('pytb', self.plaintext, '', '', '', True)
 
@@ -364,9 +374,9 @@ class Frame(object):
         info = self.locals.get('__traceback_info__')
         if info is not None:
             try:
-                info = unicode(info)
+                info = text_type(info)
             except UnicodeError:
-                info = str(info).decode('utf-8', 'replace')
+                info = binary_type(info).decode('utf-8', 'replace')
         self.info = info
 
     def render(self):
@@ -413,13 +423,13 @@ class Frame(object):
 
     def eval(self, code, mode='single'):
         """Evaluate code in the context of the frame."""
-        if isinstance(code, basestring):
-            if isinstance(code, unicode):
+        if isinstance(code, string_types + (text_type, )):
+            if isinstance(code, text_type):
                 code = UTF8_COOKIE + code.encode('utf-8')
             code = compile(code, '<interactive>', mode)
         if mode != 'exec':
             return eval(code, self.globals, self.locals)
-        exec code in self.globals, self.locals
+        exec_(code, self.globals, self.locals)
 
     @cached_property
     def sourcelines(self):
@@ -439,7 +449,7 @@ class Frame(object):
 
         if source is None:
             try:
-                f = file(self.filename)
+                f = open(self.filename)
             except IOError:
                 return []
             try:
@@ -448,7 +458,7 @@ class Frame(object):
                 f.close()
 
         # already unicode?  return right away
-        if isinstance(source, unicode):
+        if isinstance(source, text_type):
             return source.splitlines()
 
         # yes. it should be ascii, but we don't want to reject too many

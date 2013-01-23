@@ -1,5 +1,8 @@
 from os import path
-from urlparse import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse  # Python < 3
 from random import sample, randrange
 from jinja import Environment, FileSystemLoader
 from werkzeug.local import Local, LocalManager

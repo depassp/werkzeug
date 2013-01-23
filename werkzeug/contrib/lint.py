@@ -19,8 +19,14 @@
     :copyright: (c) 2011 by the Werkzeug Team, see AUTHORS for more details.
     :license: BSD, see LICENSE for more details.
 """
-from urlparse import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    # Python < 3
+    from urlparse import urlparse
 from warnings import warn
+
+from six import PY3, string_types
 
 from werkzeug.datastructures import Headers
 from werkzeug.http import is_entity_header
@@ -123,7 +129,10 @@ class GuardedIterator(object):
 
     def __init__(self, iterator, headers_set, chunks):
         self._iterator = iterator
-        self._next = iter(iterator).next
+        try:
+            self._next = iter(iterator).__next__
+        except AttributeError:  # Python < 3
+            self._next = iter(iterator).next
         self.closed = False
         self.headers_set = headers_set
         self.chunks = chunks
@@ -131,7 +140,7 @@ class GuardedIterator(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         if self.closed:
             warn(WSGIWarning('iterated over closed app_iter'),
                  stacklevel=2)
@@ -142,6 +151,10 @@ class GuardedIterator(object):
         check_string('application iterator items', rv)
         self.chunks.append(len(rv))
         return rv
+
+    def next(self):
+        # Python < 3
+        return self.__next__()
 
     def close(self):
         self.closed = True
@@ -285,7 +298,7 @@ class LintMiddleware(object):
                      stacklevel=4)
 
     def check_iterator(self, app_iter):
-        if isinstance(app_iter, basestring):
+        if isinstance(app_iter, string_types):
             warn(WSGIWarning('application returned string.  Response will '
                              'send character for character to the client '
                              'which will kill the performance.  Return a '

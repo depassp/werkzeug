@@ -12,11 +12,14 @@ import re
 from os import path
 from jinja2 import Environment, FileSystemLoader
 from werkzeug.local import Local, LocalManager
-from werkzeug.urls import url_encode, url_quote
 from werkzeug.utils import cached_property
 from werkzeug.wrappers import Response
 from werkzeug.routing import Map, Rule
 
+try:
+    unichr
+except NameError:  # Python >= 3
+    unichr = chr
 
 # context locals.  these two objects are use by the application to
 # bind objects to the current context.  A context is defined as the
@@ -47,10 +50,10 @@ _par_re = re.compile(r'\n{2,}')
 _entity_re = re.compile(r'&([^;]+);')
 _striptags_re = re.compile(r'(<!--.*-->|<[^>]*>)')
 
-from htmlentitydefs import name2codepoint
-html_entities = name2codepoint.copy()
+from six.moves import html_entities as _html_entities
+html_entities = _html_entities.name2codepoint.copy()
 html_entities['apos'] = 39
-del name2codepoint
+del _html_entities
 
 
 def expose(url_rule, endpoint=None, **kwargs):

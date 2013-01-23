@@ -11,6 +11,9 @@
 import time
 from os import path
 from threading import Thread
+
+from six import with_metaclass
+
 from cupoftee.db import Database
 from cupoftee.network import ServerBrowser
 from werkzeug.templates import Template
@@ -43,8 +46,7 @@ class PageMeta(type):
     identifier = property(lambda x: x.__name__.lower())
 
 
-class Page(object):
-    __metaclass__ = PageMeta
+class Page(with_metaclass(PageMeta)):
     url_arguments = {}
 
     def __init__(self, cup, request, url_adapter):
@@ -97,10 +99,10 @@ class Cup(object):
             endpoint, values = url_adapter.match()
             page = pages[endpoint](self, request, url_adapter)
             response = page.process(**values)
-        except NotFound, e:
+        except NotFound as e:
             page = MissingPage(self, request, url_adapter)
             response = page.process()
-        except HTTPException, e:
+        except HTTPException as e:
             return e
         return response or page.get_response()
 

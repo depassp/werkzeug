@@ -14,9 +14,15 @@ import re
 import os
 import sys
 
+from six import reraise, string_types, text_type
+
 from werkzeug._internal import _iter_modules, _DictAccessorProperty, \
      _parse_signature, _missing
 
+try:
+    unichr
+except NameError:  # Python >= 3
+    unichr = chr
 
 _format_re = re.compile(r'\$(?:(%s)|\{(%s)\})' % (('[a-zA-Z_][a-zA-Z0-9_]*',) * 2))
 _entity_re = re.compile(r'&([^;]+);')
@@ -139,9 +145,9 @@ class HTMLBuilder(object):
     u'<p>&lt;foo&gt;</p>'
     """
 
-    from htmlentitydefs import name2codepoint
+    from six.moves import html_entities
     _entity_re = re.compile(r'&([^;]+);')
-    _entities = name2codepoint.copy()
+    _entities = html_entities.name2codepoint.copy()
     _entities['apos'] = 39
     _empty_elements = set([
         'area', 'base', 'basefont', 'br', 'col', 'command', 'embed', 'frame',
@@ -154,7 +160,7 @@ class HTMLBuilder(object):
     ])
     _plaintext_elements = set(['textarea'])
     _c_like_cdata = set(['script', 'style'])
-    del name2codepoint
+    del html_entities
 
     def __init__(self, dialect):
         self._dialect = dialect
@@ -167,7 +173,7 @@ class HTMLBuilder(object):
             raise AttributeError(tag)
         def proxy(*children, **arguments):
             buffer = '<' + tag
-            for key, value in arguments.iteritems():
+            for key, value in arguments.items():
                 if value is None:
                     continue
                 if key[-1] == '_':
@@ -190,7 +196,7 @@ class HTMLBuilder(object):
                 return buffer
             buffer += '>'
 
-            children_as_string = ''.join([unicode(x) for x in children
+            children_as_string = u''.join([text_type(x) for x in children
                                          if x is not None])
 
             if children_as_string:
@@ -246,7 +252,7 @@ def format_string(string, context):
     """
     def lookup_arg(match):
         x = context[match.group(1) or match.group(2)]
-        if not isinstance(x, basestring):
+        if not isinstance(x, string_types):
             x = type(string)(x)
         return x
     return _format_re.sub(lookup_arg, string)
@@ -276,7 +282,7 @@ def secure_filename(filename):
 
     :param filename: the filename to secure
     """
-    if isinstance(filename, unicode):
+    if isinstance(filename, text_type):
         from unicodedata import normalize
         filename = normalize('NFKD', filename).encode('ascii', 'ignore')
     for sep in os.path.sep, os.path.altsep:
@@ -309,8 +315,8 @@ def escape(s, quote=False):
         return ''
     elif hasattr(s, '__html__'):
         return s.__html__()
-    elif not isinstance(s, basestring):
-        s = unicode(s)
+    elif not isinstance(s, string_types):
+        s = text_type(s)
     s = s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
     if quote:
         s = s.replace('"', "&quot;")
@@ -354,7 +360,7 @@ def redirect(location, code=302):
     """
     from werkzeug.wrappers import BaseResponse
     display_location = escape(location)
-    if isinstance(location, unicode):
+    if isinstance(location, text_type):
         from werkzeug.urls import iri_to_uri
         location = iri_to_uri(location)
     response = BaseResponse(
@@ -397,7 +403,7 @@ def import_string(import_name, silent=False):
     :return: imported object
     """
     # force the import name to automatically convert to strings
-    if isinstance(import_name, unicode):
+    if isinstance(import_name, text_type):
         import_name = str(import_name)
     try:
         if ':' in import_name:
@@ -406,10 +412,15 @@ def import_string(import_name, silent=False):
             module, obj = import_name.rsplit('.', 1)
         else:
             return __import__(import_name)
-        # __import__ is not able to handle unicode strings in the fromlist
-        # if the module is a package
-        if isinstance(obj, unicode):
-            obj = obj.encode('utf-8')
+        if sys.version_info < (3, ):
+            # __import__ is not able to handle unicode strings in the fromlist
+            # If the module is a package, __import__ only accept:
+            if isinstance(obj, text_type):
+                obj = obj.encode('utf-8')
+        else:
+            # In Python 3, it's the reverse.
+            if not isinstance(obj, text_type):
+                obj = obj.decode('utf-8')
         try:
             return getattr(__import__(module, None, None, [obj]), obj)
         except (ImportError, AttributeError):
@@ -418,9 +429,10 @@ def import_string(import_name, silent=False):
             modname = module + '.' + obj
             __import__(modname)
             return sys.modules[modname]
-    except ImportError, e:
+    except ImportError as e:
         if not silent:
-            raise ImportStringError(import_name, e), None, sys.exc_info()[2]
+            reraise(ImportStringError, ImportStringError(import_name, e),
+                    sys.exc_info()[2])
 
 
 def find_modules(import_path, include_packages=False, recursive=False):
@@ -533,11 +545,11 @@ def bind_arguments(func, args, kwargs):
         multikw = set(extra) & set([x[0] for x in arg_spec])
         if multikw:
             raise TypeError('got multiple values for keyword argument ' +
-                            repr(iter(multikw).next()))
+                            repr(next(iter(multikw))))
         values[kwarg_var] = extra
     elif extra:
         raise TypeError('got unexpected keyword argument ' +
-                        repr(iter(extra).next()))
+                        repr(next(iter(extra))))
     return values
 
 

@@ -10,8 +10,9 @@
 """
 import unittest
 import pickle
-from StringIO import StringIO
 from datetime import datetime
+
+from six import BytesIO, PY3
 
 from werkzeug.testsuite import WerkzeugTestCase
 
@@ -40,6 +41,8 @@ def request_demo_app(environ, start_response):
     request = wrappers.BaseRequest(environ)
     assert 'werkzeug.request' in environ
     start_response('200 OK', [('Content-Type', 'text/plain')])
+    if PY3:
+        assert isinstance(environ['wsgi.input'], BytesIO)
     return [pickle.dumps({
         'args':             request.args,
         'args_as_list':     request.args.lists(),
@@ -52,7 +55,7 @@ def request_demo_app(environ, start_response):
 
 def prepare_environ_pickle(environ):
     result = {}
-    for key, value in environ.iteritems():
+    for key, value in environ.items():
         try:
             pickle.dumps((key, value))
         except Exception:
@@ -80,16 +83,16 @@ class WrappersTestCase(WerkzeugTestCase):
         assert response['args_as_list'] == [('foo', ['bar', 'hehe'])]
         assert response['form'] == MultiDict()
         assert response['form_as_list'] == []
-        assert response['data'] == ''
+        assert response['data'] == b''
         self.assert_environ(response['environ'], 'GET')
 
         # post requests with form data
-        response = client.post('/?blub=blah', data='foo=blub+hehe&blah=42',
+        response = client.post('/?blub=blah', data=b'foo=blub+hehe&blah=42',
                                content_type='application/x-www-form-urlencoded')
         assert response['args'] == MultiDict([('blub', 'blah')])
         assert response['args_as_list'] == [('blub', ['blah'])]
         assert response['form'] == MultiDict([('foo', 'blub hehe'), ('blah', '42')])
-        assert response['data'] == ''
+        assert response['data'] == b''
         # currently we do not guarantee that the values are ordered correctly
         # for post data.
         ## assert response['form_as_list'] == [('foo', ['blub hehe']), ('blah', ['42'])]
@@ -101,11 +104,11 @@ class WrappersTestCase(WerkzeugTestCase):
         assert response['args'] == MultiDict([('blub', 'blah')])
         assert response['args_as_list'] == [('blub', ['blah'])]
         assert response['form'] == MultiDict([('foo', 'blub hehe'), ('blah', '42')])
-        assert response['data'] == ''
+        assert response['data'] == b''
         self.assert_environ(response['environ'], 'PATCH')
 
         # post requests with json data
-        json = '{"foo": "bar", "blub": "blah"}'
+        json = b'{"foo": "bar", "blub": "blah"}'
         response = client.post('/?a=b', data=json, content_type='application/json')
         assert response['data'] == json
         assert response['args'] == MultiDict([('a', 'b')])
@@ -150,12 +153,12 @@ class WrappersTestCase(WerkzeugTestCase):
     def test_base_response(self):
         # unicode
         response = wrappers.BaseResponse(u'öäü')
-        assert response.data == 'öäü'
+        assert response.data == u'öäü'.encode('utf-8')
 
         # writing
         response = wrappers.Response('foo')
         response.stream.write('bar')
-        assert response.data == 'foobar'
+        assert response.data == b'foobar'
 
         # set cookie
         response = wrappers.BaseResponse()
@@ -177,7 +180,10 @@ class WrappersTestCase(WerkzeugTestCase):
         # close call forwarding
         closed = []
         class Iterable(object):
+            def __next__(self):
+                raise StopIteration()
             def next(self):
+                # Python < 3
                 raise StopIteration()
             def __iter__(self):
                 return self
@@ -209,8 +215,8 @@ class WrappersTestCase(WerkzeugTestCase):
     def test_type_forcing(self):
         def wsgi_application(environ, start_response):
             start_response('200 OK', [('Content-Type', 'text/html')])
-            return ['Hello World!']
-        base_response = wrappers.BaseResponse('Hello World!', content_type='text/html')
+            return [b'Hello World!']
+        base_response = wrappers.BaseResponse(b'Hello World!', content_type='text/html')
 
         class SpecialResponse(wrappers.Response):
             def foo(self):
@@ -224,7 +230,7 @@ class WrappersTestCase(WerkzeugTestCase):
             response = SpecialResponse.force_type(orig_resp, fake_env)
             assert response.__class__ is SpecialResponse
             assert response.foo() == 42
-            assert response.data == 'Hello World!'
+            assert response.data == b'Hello World!'
             assert response.content_type == 'text/html'
 
         # without env, no arbitrary conversion
@@ -299,7 +305,7 @@ class WrappersTestCase(WerkzeugTestCase):
         assert not request.user_agent
 
     def test_etag_response_mixin(self):
-        response = wrappers.Response('Hello World')
+        response = wrappers.Response(b'Hello World')
         assert response.get_etag() == (None, None)
         response.add_etag()
         assert response.get_etag() == ('b10a8db164e0754105b7a99be72e3fe5', False)
@@ -326,14 +332,14 @@ class WrappersTestCase(WerkzeugTestCase):
         assert not 'content-length' in resp.headers
 
         # make sure date is not overriden
-        response = wrappers.Response('Hello World')
+        response = wrappers.Response(b'Hello World')
         response.date = 1337
         d = response.date
         response.make_conditional(env)
         assert response.date == d
 
         # make sure content length is only set if missing
-        response = wrappers.Response('Hello World')
+        response = wrappers.Response(b'Hello World')
         response.content_length = 999
         response.make_conditional(env)
         self.assert_equal(response.content_length, 999)
@@ -344,13 +350,13 @@ class WrappersTestCase(WerkzeugTestCase):
         class WithoutFreeze(wrappers.BaseResponse, wrappers.ETagResponseMixin):
             pass
 
-        response = WithFreeze('Hello World')
+        response = WithFreeze(b'Hello World')
         response.freeze()
         assert response.get_etag() == (wrappers.generate_etag('Hello World'), False)
-        response = WithoutFreeze('Hello World')
+        response = WithoutFreeze(b'Hello World')
         response.freeze()
         assert response.get_etag() == (None, None)
-        response = wrappers.Response('Hello World')
+        response = wrappers.Response(b'Hello World')
         response.freeze()
         assert response.get_etag() == (None, None)
 
@@ -365,10 +371,10 @@ class WrappersTestCase(WerkzeugTestCase):
 
     def test_response_stream_mixin(self):
         response = wrappers.Response()
-        response.stream.write('Hello ')
-        response.stream.write('World!')
-        assert response.response == ['Hello ', 'World!']
-        assert response.data == 'Hello World!'
+        response.stream.write(b'Hello ')
+        response.stream.write(b'World!')
+        assert response.response == [b'Hello ', b'World!']
+        assert response.data == b'Hello World!'
 
     def test_common_response_descriptors_mixin(self):
         response = wrappers.Response()
@@ -437,9 +443,9 @@ class WrappersTestCase(WerkzeugTestCase):
 
     def test_form_parsing_failed(self):
         data = (
-            '--blah\r\n'
+            b'--blah\r\n'
         )
-        data = wrappers.Request.from_values(input_stream=StringIO(data),
+        data = wrappers.Request.from_values(input_stream=BytesIO(data),
                                             content_length=len(data),
                                             content_type='multipart/form-data; boundary=foo',
                                             method='POST')
@@ -454,9 +460,9 @@ class WrappersTestCase(WerkzeugTestCase):
     def test_response_streamed(self):
         r = wrappers.Response()
         assert not r.is_streamed
-        r = wrappers.Response("Hello World")
+        r = wrappers.Response(b"Hello World")
         assert not r.is_streamed
-        r = wrappers.Response(["foo", "bar"])
+        r = wrappers.Response([b"foo", b"bar"])
         assert not r.is_streamed
         def gen():
             if 0:
@@ -470,12 +476,12 @@ class WrappersTestCase(WerkzeugTestCase):
             yield "bar"
         resp = wrappers.Response(generate())
         resp.freeze()
-        assert resp.response == ['foo', 'bar']
+        assert resp.response == [b'foo', b'bar']
         assert resp.headers['content-length'] == '6'
 
     def test_other_method_payload(self):
-        data = 'Hello World'
-        req = wrappers.Request.from_values(input_stream=StringIO(data),
+        data = b'Hello World'
+        req = wrappers.Request.from_values(input_stream=BytesIO(data),
                                            content_length=len(data),
                                            content_type='text/plain',
                                            method='WHAT_THE_FUCK')
@@ -500,7 +506,7 @@ class WrappersTestCase(WerkzeugTestCase):
             return headers.get('content-length', type=int)
 
         def generate_items():
-            yield "Hello "
+            yield b"Hello "
             yield u"Wörld!"
 
         # werkzeug encodes when set to `data` now, which happens
@@ -524,7 +530,7 @@ class WrappersTestCase(WerkzeugTestCase):
         assert resp.is_streamed
         assert not resp.is_sequence
         assert resp.data == u'Hello Wörld!'.encode('utf-8')
-        assert resp.response == ['Hello ', u'Wörld!'.encode('utf-8')]
+        assert resp.response == [b'Hello ', u'Wörld!'.encode('utf-8')]
         assert not resp.is_streamed
         assert resp.is_sequence
 
@@ -536,17 +542,17 @@ class WrappersTestCase(WerkzeugTestCase):
         self.assert_raises(RuntimeError, lambda: resp.data)
         resp.make_sequence()
         assert resp.data == u'Hello Wörld!'.encode('utf-8')
-        assert resp.response == ['Hello ', u'Wörld!'.encode('utf-8')]
+        assert resp.response == [b'Hello ', u'Wörld!'.encode('utf-8')]
         assert not resp.is_streamed
         assert resp.is_sequence
 
         # stream makes it a list no matter how the conversion is set
         for val in True, False:
             resp.implicit_sequence_conversion = val
-            resp.response = ("foo", "bar")
+            resp.response = (b"foo", b"bar")
             assert resp.is_sequence
-            resp.stream.write('baz')
-            assert resp.response == ['foo', 'bar', 'baz']
+            resp.stream.write(b'baz')
+            assert resp.response == [b'foo', b'bar', b'baz']
 
     def test_form_data_ordering(self):
         class MyRequest(wrappers.Request):
@@ -626,10 +632,10 @@ class WrappersTestCase(WerkzeugTestCase):
         assert resp.content_range.length == 1000
 
     def test_auto_content_length(self):
-        resp = wrappers.Response('Hello World!')
+        resp = wrappers.Response(b'Hello World!')
         assert resp.content_length == 12
 
-        resp = wrappers.Response(['Hello World!'])
+        resp = wrappers.Response([b'Hello World!'])
         assert resp.content_length is None
         assert resp.get_wsgi_headers({})['Content-Length'] == '12'
 
@@ -637,11 +643,11 @@ class WrappersTestCase(WerkzeugTestCase):
         class MyResponse(wrappers.Response):
             automatically_set_content_length = False
         resp = MyResponse('Hello World!')
-        self.assert_(resp.content_length is None)
+        self.assertTrue(resp.content_length is None)
 
         resp = MyResponse(['Hello World!'])
-        self.assert_(resp.content_length is None)
-        self.assert_('Content-Length' not in resp.get_wsgi_headers({}))
+        self.assertTrue(resp.content_length is None)
+        self.assertTrue('Content-Length' not in resp.get_wsgi_headers({}))
 
     def test_location_header_autocorrect(self):
         env = create_environ()

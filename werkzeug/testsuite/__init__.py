@@ -8,10 +8,10 @@
     :copyright: (c) 2011 by Armin Ronacher.
     :license: BSD, see LICENSE for more details.
 """
-
-from __future__ import with_statement
-
 import unittest
+
+from six import reraise
+
 from werkzeug.utils import import_string, find_modules
 
 
@@ -86,7 +86,7 @@ class _ExceptionCatcher(object):
             self.test_case.fail('Expected exception of type %r' %
                                 exception_name)
         elif not issubclass(exc_type, self.exc_type):
-            raise exc_type, exc_value, tb
+            reraise(exc_type, exc_value, tb)
         return True
 
 
@@ -142,5 +142,5 @@ def main():
     """Runs the testsuite as command line application."""
     try:
         unittest.main(testLoader=BetterLoader(), defaultTest='suite')
-    except Exception, e:
-        print 'Error: %s' % e
+    except Exception as e:
+        print('Error: %s' % e)

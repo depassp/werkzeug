@@ -58,6 +58,7 @@
     :license: BSD, see LICENSE for more details.
 """
 import sys
+from six import PY3, integer_types
 from werkzeug._internal import HTTP_STATUS_CODES, _get_environ
 
 
@@ -142,6 +143,8 @@ class HTTPException(Exception):
         return response(environ, start_response)
 
     def __str__(self):
+        if PY3:
+            return self.__unicode__()
         return unicode(self).encode('utf-8')
 
     def __unicode__(self):
@@ -538,7 +541,7 @@ default_exceptions = {}
 __all__ = ['HTTPException']
 
 def _find_exceptions():
-    for name, obj in globals().iteritems():
+    for name, obj in globals().items():
         try:
             if getattr(obj, 'code', None) is not None:
                 default_exceptions[obj.code] = obj
@@ -572,7 +575,7 @@ class Aborter(object):
             self.mapping.update(extra)
 
     def __call__(self, code, *args, **kwargs):
-        if not args and not kwargs and not isinstance(code, (int, long)):
+        if not args and not kwargs and not isinstance(code, integer_types):
             raise _ProxyException(code)
         if code not in self.mapping:
             raise LookupError('no exception for %r' % code)

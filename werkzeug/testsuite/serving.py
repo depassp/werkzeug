@@ -10,10 +10,13 @@
 """
 import sys
 import time
-import urllib
+try:
+    from urllib.request import urlopen, HTTPHandler, OpenerDirector
+except ImportError:  # Python < 3
+    from urllib2 import urlopen, HTTPHandler, OpenerDirector
 import unittest
 from functools import update_wrapper
-from StringIO import StringIO
+from io import StringIO
 
 from werkzeug.testsuite import WerkzeugTestCase
 
@@ -56,7 +59,7 @@ def run_dev_server(application):
     ip, port = server.socket.getsockname()[:2]
     if ':' in ip:
         ip = '[%s]' % ip
-    return server, '%s:%d'  % (ip, port)
+    return server, '%s:%d' % (ip, port)
 
 
 class ServingTestCase(WerkzeugTestCase):
@@ -64,18 +67,21 @@ class ServingTestCase(WerkzeugTestCase):
     @silencestderr
     def test_serving(self):
         server, addr = run_dev_server(test_app)
-        rv = urllib.urlopen('http://%s/?foo=bar&baz=blah' % addr).read()
-        assert 'WSGI Information' in rv
-        assert 'foo=bar&amp;baz=blah' in rv
-        assert ('Werkzeug/%s' % version) in rv
+        rv = urlopen('http://%s/?foo=bar&baz=blah' % addr).read()
+        assert b'WSGI Information' in rv
+        assert b'foo=bar&amp;baz=blah' in rv
+        assert ('Werkzeug/%s' % version).encode('ascii') in rv
 
     @silencestderr
     def test_broken_app(self):
         def broken_app(environ, start_response):
             1/0
         server, addr = run_dev_server(broken_app)
-        rv = urllib.urlopen('http://%s/?foo=bar&baz=blah' % addr).read()
-        assert 'Internal Server Error' in rv
+        # XXX: urlopen() in Python 3 raises an Exception when 500
+        opener = OpenerDirector()
+        opener.add_handler(HTTPHandler())
+        rv = opener.open('http://%s/?foo=bar&baz=blah' % addr).read()
+        assert b'Internal Server Error' in rv
 
 
 def suite():

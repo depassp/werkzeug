@@ -51,7 +51,7 @@ def action_initdb():
     for blog in blogs:
         session.add(blog)
     session.commit()
-    print 'Initialized database, now run manage-plnt.py sync to get the posts'
+    print('Initialized database, now run manage-plnt.py sync to get the posts')
 
 
 def action_sync():

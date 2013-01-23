@@ -25,7 +25,7 @@ from werkzeug.routing import NumberConverter
 def render_template(name_parts, rules, converters):
     result = u''
     if name_parts:
-        for idx in xrange(0, len(name_parts) - 1):
+        for idx in range(0, len(name_parts) - 1):
             name = u'.'.join(name_parts[:idx + 1])
             result += u"if (typeof %s === 'undefined') %s = {}\n" % (name, name)
         result += '%s = ' % '.'.join(name_parts)
@@ -190,7 +190,7 @@ def generate_map(map, name='url_map'):
             'data':         data
         } for is_dynamic, data in rule._trace]
         rule_converters = {}
-        for key, converter in rule._converters.iteritems():
+        for key, converter in rule._converters.items():
             js_func = js_to_url_function(converter)
             try:
                 index = converters.index(js_func)

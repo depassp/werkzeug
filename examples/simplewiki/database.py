@@ -9,6 +9,7 @@
     :license: BSD.
 """
 from datetime import datetime
+from six import integer_types
 from sqlalchemy import Table, Column, Integer, String, DateTime, \
      ForeignKey, MetaData, join
 from sqlalchemy.orm import relation, create_session, scoped_session, \
@@ -62,7 +63,7 @@ class Revision(object):
     query = session.query_property()
 
     def __init__(self, page, text, change_note='', timestamp=None):
-        if isinstance(page, (int, long)):
+        if isinstance(page, integer_types):
             self.page_id = page
         else:
             self.page = page

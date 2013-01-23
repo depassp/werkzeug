@@ -9,15 +9,20 @@
     :license: BSD, see LICENSE for more details.
 """
 import sys
-import urlparse
+try:
+    from urllib.parse import urlsplit, urlunsplit
+    from urllib.request import Request as U2Request
+except ImportError:  # Python < 3
+    from urlparse import urlsplit, urlunsplit
+    from urllib2 import Request as U2Request
 import mimetypes
 from time import time
 from random import random
 from itertools import chain
 from tempfile import TemporaryFile
-from cStringIO import StringIO
-from cookielib import CookieJar
-from urllib2 import Request as U2Request
+
+from six import PY3, BytesIO, binary_type, string_types, text_type, reraise
+from six.moves import http_cookiejar
 
 from werkzeug._internal import _empty_stream, _get_environ
 from werkzeug.wrappers import BaseRequest
@@ -36,7 +41,7 @@ def stream_encode_multipart(values, use_tempfile=True, threshold=1024 * 500,
     """
     if boundary is None:
         boundary = '---------------WerkzeugFormPart_%s%s' % (time(), random())
-    _closure = [StringIO(), 0, False]
+    _closure = [BytesIO(), 0, False]
 
     if use_tempfile:
         def write(string):
@@ -62,8 +67,8 @@ def stream_encode_multipart(values, use_tempfile=True, threshold=1024 * 500,
 
     for key, values in values.iterlists():
         for value in values:
-            write('--%s\r\nContent-Disposition: form-data; name="%s"' %
-                  (boundary, key))
+            write(('--%s\r\nContent-Disposition: form-data; name="%s"' %
+                   (boundary, key)).encode('ascii'))
             reader = getattr(value, 'read', None)
             if reader is not None:
                 filename = getattr(value, 'filename',
@@ -74,21 +79,23 @@ def stream_encode_multipart(values, use_tempfile=True, threshold=1024 * 500,
                         mimetypes.guess_type(filename)[0] or \
                         'application/octet-stream'
                 if filename is not None:
-                    write('; filename="%s"\r\n' % filename)
+                    write(('; filename="%s"\r\n' % filename).encode('ascii'))
                 else:
-                    write('\r\n')
-                write('Content-Type: %s\r\n\r\n' % content_type)
+                    write(b'\r\n')
+                write(('Content-Type: %s\r\n\r\n' % content_type).encode('ascii'))
                 while 1:
                     chunk = reader(16384)
                     if not chunk:
                         break
                     write(chunk)
             else:
-                if isinstance(value, unicode):
+                if not isinstance(value, bytes):
+                    value = str(value)
+                if isinstance(value, text_type):
                     value = value.encode(charset)
-                write('\r\n\r\n' + str(value))
-            write('\r\n')
-    write('--%s--\r\n' % boundary)
+                write(b'\r\n\r\n' + value)
+            write(b'\r\n')
+    write(('--%s--\r\n' % boundary).encode('ascii'))
 
     length = int(_closure[0].tell())
     _closure[0].seek(0)
@@ -123,9 +130,16 @@ class _TestCookieHeaders(object):
         headers = []
         name = name.lower()
         for k, v in self.headers:
-            if k.lower() == name:
+            if k.lower() == name.lower():
                 headers.append(v)
         return headers
+
+    def get_all(self, name, default=None):
+        rv = []
+        for k, v in self.headers:
+            if k.lower() == name.lower():
+                rv.append(v)
+        return rv or default or []
 
 
 class _TestCookieResponse(object):
@@ -140,7 +154,7 @@ class _TestCookieResponse(object):
         return self.headers
 
 
-class _TestCookieJar(CookieJar):
+class _TestCookieJar(http_cookiejar.CookieJar):
     """A cookielib.CookieJar modified to inject and read cookie headers from
     and to wsgi environments, and wsgi application responses.
     """
@@ -175,7 +189,7 @@ def _iter_data(data):
             for value in values:
                 yield key, value
     else:
-        for key, values in data.iteritems():
+        for key, values in data.items():
             if isinstance(values, list):
                 for value in values:
                     yield key, value
@@ -259,19 +273,21 @@ class EnvironBuilder(object):
                  content_length=None, errors_stream=None, multithread=False,
                  multiprocess=False, run_once=False, headers=None, data=None,
                  environ_base=None, environ_overrides=None, charset='utf-8'):
+        if isinstance(path, binary_type):
+            path = path.decode('latin1')
         if query_string is None and '?' in path:
             path, query_string = path.split('?', 1)
         self.charset = charset
-        if isinstance(path, unicode):
+        if isinstance(path, text_type):
             path = iri_to_uri(path, charset)
         self.path = path
         if base_url is not None:
-            if isinstance(base_url, unicode):
+            if isinstance(base_url, text_type):
                 base_url = iri_to_uri(base_url, charset)
             else:
                 base_url = url_fix(base_url, charset)
         self.base_url = base_url
-        if isinstance(query_string, basestring):
+        if isinstance(query_string, string_types):
             self.query_string = query_string
         else:
             if query_string is None:
@@ -300,9 +316,11 @@ class EnvironBuilder(object):
 
         if data:
             if input_stream is not None:
-                raise TypeError('can\'t provide input stream and data')
-            if isinstance(data, basestring):
-                self.input_stream = StringIO(data)
+                raise TypeError('can\'t provide both input stream and data')
+            if isinstance(data, text_type):
+                data = data.encode(self.charset)
+            if isinstance(data, binary_type):
+                self.input_stream = BytesIO(data)
                 if self.content_length is None:
                     self.content_length = len(data)
             else:
@@ -331,7 +349,7 @@ class EnvironBuilder(object):
             self.files.add_file(key, value)
 
     def _get_base_url(self):
-        return urlparse.urlunsplit((self.url_scheme, self.host,
+        return urlunsplit((self.url_scheme, self.host,
                                     self.script_root, '', '')).rstrip('/') + '/'
 
     def _set_base_url(self, value):
@@ -340,7 +358,7 @@ class EnvironBuilder(object):
             netloc = 'localhost'
             script_root = ''
         else:
-            scheme, netloc, script_root, qs, anchor = urlparse.urlsplit(value)
+            scheme, netloc, script_root, qs, anchor = urlsplit(value)
             if qs or anchor:
                 raise ValueError('base url must not contain a query string '
                                  'or fragment')
@@ -486,13 +504,13 @@ class EnvironBuilder(object):
         if self.closed:
             return
         try:
-            files = self.files.itervalues()
+            files = self.files.values()
         except AttributeError:
             files = ()
         for f in files:
             try:
                 f.close()
-            except Exception, e:
+            except Exception as e:
                 pass
         self.closed = True
 
@@ -515,8 +533,9 @@ class EnvironBuilder(object):
             content_type += '; boundary="%s"' % boundary
         elif content_type == 'application/x-www-form-urlencoded':
             values = url_encode(self.form, charset=self.charset)
+            values = values.encode('ascii')
             content_length = len(values)
-            input_stream = StringIO(values)
+            input_stream = BytesIO(values)
         else:
             input_stream = _empty_stream
 
@@ -525,7 +544,10 @@ class EnvironBuilder(object):
             result.update(self.environ_base)
 
         def _path_encode(x):
-            if isinstance(x, unicode):
+            if PY3:
+                # NOTE: PEP 3333 for Python 3
+                return _unquote(x).decode('latin1')
+            if isinstance(x, text_type):
                 x = x.encode(self.charset)
             return _unquote(x)
 
@@ -641,8 +663,8 @@ class Client(object):
         """Resolves a single redirect and triggers the request again
         directly on this redirect client.
         """
-        scheme, netloc, script_root, qs, anchor = urlparse.urlsplit(new_location)
-        base_url = urlparse.urlunsplit((scheme, netloc, '', '', '')).rstrip('/') + '/'
+        scheme, netloc, script_root, qs, anchor = urlsplit(new_location)
+        base_url = urlunsplit((scheme, netloc, '', '', '')).rstrip('/') + '/'
 
         cur_server_name = netloc.split(':', 1)[0].split('.')
         real_server_name = get_host(environ).rsplit(':', 1)[0].split('.')
@@ -814,7 +836,7 @@ def run_wsgi_app(app, environ, buffered=False):
 
     def start_response(status, headers, exc_info=None):
         if exc_info is not None:
-            raise exc_info[0], exc_info[1], exc_info[2]
+            reraise(exc_info[0], exc_info[1], exc_info[2])
         response[:] = [status, headers]
         return buffer.append
 
@@ -836,7 +858,7 @@ def run_wsgi_app(app, environ, buffered=False):
     # we have a close callable.
     else:
         while not response:
-            buffer.append(app_iter.next())
+            buffer.append(next(app_iter))
         if buffer:
             close_func = getattr(app_iter, 'close', None)
             app_iter = chain(buffer, app_iter)

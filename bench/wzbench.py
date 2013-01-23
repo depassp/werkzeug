@@ -11,14 +11,14 @@
     :copyright: 2009 by the Werkzeug Team, see AUTHORS for more details.
     :license: BSD, see LICENSE for more details.
 """
-from __future__ import division
 import os
 import gc
 import sys
 import subprocess
-from cStringIO import StringIO
 from timeit import default_timer as timer
 from types import FunctionType
+
+from six import StringIO, print_
 
 
 # create a new module where we later store all the werkzeug attributes.
@@ -91,7 +91,7 @@ def load_werkzeug(path):
                     return line[8:].strip(' \t,')[1:-1], hg_tag
         finally:
             f.close()
-    print >> sys.stderr, 'Unknown werkzeug version loaded'
+    print_('Unknown werkzeug version loaded', file=sys.stderr)
     sys.exit(2)
 
 
@@ -119,10 +119,10 @@ def bench(func):
 
     # figure out how many times we have to run the function to
     # get reliable timings.
-    for i in xrange(3, 10):
+    for i in range(3, 10):
         rounds = 1 << i
         t = timer()
-        for x in xrange(rounds):
+        for x in range(rounds):
             func()
         if timer() - t >= 0.2:
             break
@@ -134,13 +134,13 @@ def bench(func):
         gc.disable()
         try:
             t = timer()
-            for x in xrange(rounds):
+            for x in range(rounds):
                 func()
             return (timer() - t) / rounds * 1000
         finally:
             gc.enable()
 
-    delta = median(_run() for x in xrange(TEST_RUNS))
+    delta = median(_run() for x in range(TEST_RUNS))
     sys.stdout.write('%.4f\n' % delta)
     sys.stdout.flush()
 
@@ -171,7 +171,7 @@ def main():
 
 def init_compare():
     """Initializes the comparison feature."""
-    print 'Initializing comparison feature'
+    print_('Initializing comparison feature')
     subprocess.Popen(['hg', 'clone', '..', 'a']).wait()
     subprocess.Popen(['hg', 'clone', '..', 'b']).wait()
 
@@ -179,17 +179,17 @@ def init_compare():
 def compare(node1, node2):
     """Compares two Werkzeug hg versions."""
     if not os.path.isdir('a'):
-        print >> sys.stderr, 'error: comparison feature not initialized'
+        print_('error: comparison feature not initialized', file=sys.stderr)
         sys.exit(4)
 
-    print '=' * 80
-    print 'WERKZEUG INTERNAL BENCHMARK -- COMPARE MODE'.center(80)
-    print '-' * 80
+    print_('=' * 80)
+    print_('WERKZEUG INTERNAL BENCHMARK -- COMPARE MODE'.center(80))
+    print_('-' * 80)
 
     delim = '-' * 20
 
     def _error(msg):
-        print >> sys.stderr, 'error:', msg
+        print_('error:', msg, file=sys.stderr)
         sys.exit(1)
 
     def _hg_update(repo, node):
@@ -219,8 +219,8 @@ def compare(node1, node2):
     d1 = run('a', no_header=True)
     d2 = run('b', no_header=True)
 
-    print 'DIRECT COMPARISON'.center(80)
-    print '-' * 80
+    print_('DIRECT COMPARISON'.center(80))
+    print_('-' * 80)
     for key in sorted(d1):
         delta = d1[key] - d2[key]
         if abs(1 - d1[key] / d2[key]) < TOLERANCE or \
@@ -229,9 +229,9 @@ def compare(node1, node2):
         else:
             delta = '%+.4f (%+d%%)' % \
                         (delta, round(d2[key] / d1[key] * 100 - 100))
-        print '%36s   %.4f    %.4f    %s' % \
-                        (format_func(key), d1[key], d2[key], delta)
-    print '-' * 80
+        print_('%36s   %.4f    %.4f    %s' % \
+                        (format_func(key), d1[key], d2[key], delta))
+    print_('-' * 80)
 
 
 def run(path, no_header=False):
@@ -239,14 +239,14 @@ def run(path, no_header=False):
     wz_version, hg_tag = load_werkzeug(path)
     result = {}
     if not no_header:
-        print '=' * 80
-        print 'WERKZEUG INTERNAL BENCHMARK'.center(80)
-        print '-' * 80
-    print 'Path:    %s' % path
-    print 'Version: %s' % wz_version
+        print_('=' * 80)
+        print_('WERKZEUG INTERNAL BENCHMARK'.center(80))
+        print_('-' * 80)
+    print_('Path:    %s' % path)
+    print_('Version: %s' % wz_version)
     if hg_tag is not None:
-        print 'HG Tag:  %s' % hg_tag
-    print '-' * 80
+        print_('HG Tag:  %s' % hg_tag)
+    print_('-' * 80)
     for key, value in sorted(globals().items()):
         if key.startswith('time_'):
             before = globals().get('before_' + key[5:])
@@ -256,11 +256,11 @@ def run(path, no_header=False):
             after = globals().get('after_' + key[5:])
             if after:
                 after()
-    print '-' * 80
+    print_('-' * 80)
     return result
 
 
-URL_DECODED_DATA = dict((str(x), str(x)) for x in xrange(100))
+URL_DECODED_DATA = dict((str(x), str(x)) for x in range(100))
 URL_ENCODED_DATA = '&'.join('%s=%s' % x for x in URL_DECODED_DATA.items())
 MULTIPART_ENCODED_DATA = '\n'.join((
     '--foo',
@@ -341,7 +341,7 @@ def time_cached_property():
             return 42
 
     f = Foo()
-    for x in xrange(60):
+    for x in range(60):
         f.x
 
 
@@ -360,7 +360,7 @@ def before_request_form_access():
     })
 
 def time_request_form_access():
-    for x in xrange(30):
+    for x in range(30):
         REQUEST.path
         REQUEST.script_root
         REQUEST.args['foo']
@@ -415,9 +415,9 @@ def before_local_manager_dispatch():
 
 
 def time_local_manager_dispatch():
-    for x in xrange(10):
+    for x in range(10):
         LOCAL.x = 42
-    for x in xrange(10):
+    for x in range(10):
         LOCAL.x
 
 
@@ -449,4 +449,4 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print >> sys.stderr, 'interrupted!'
+        print_('interrupted!', file=sys.stderr)
