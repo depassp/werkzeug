@@ -41,4 +41,4 @@ def application(environ, start_response):
     return ['Hello, Python 3!']  # error
 ```
 
-- If you want to use `environ['PATH_INFO']` directly, encode it once in ISO 5589-1 (`latin1`).
+- If you want to use `environ['PATH_INFO']` directly, encode it once in ISO 8859-1 (`latin1`).
